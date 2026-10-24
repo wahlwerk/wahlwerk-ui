@@ -53,7 +53,9 @@ def protocol_drawing(
     steps: Sequence[Step], *, width: int = 640, title: str = "", scope: str | None = None
 ) -> Drawing:
     """The protocol of ``steps`` as a :class:`~wahlwerk_ui.svg.Drawing`."""
-    margin = min(200, width // 3)  # the facts written, at the right
+    # The facts written, at the right: as wide as the longest, at most a third.
+    longest = max((_width(f"→ {fact}") for fact in _all_writes(steps)), default=0.0)
+    margin = int(min(width // 3, max(120.0, longest + 24)))
     left = _PAD + _GUTTER
     right = width - _PAD - margin
     if right - left < 160:
@@ -101,10 +103,24 @@ def _height(step: Step, width: float) -> float:
         given = len(_wrap(_given(step), width - 12)) if step.get("calls") else 0
         return (2 + given + len(step.get("calls") or ())) * _LINE + 6 + concepts
     inner = sum(_height(c, width - 2 * _FRAME_PAD) for c in children) + _GAP * (len(children) - 1)
-    header = 2 * _LINE if step.get("parameters") or step.get("citation") else _LINE
-    if step.get("condition"):
-        header += _LINE
+    header = 2 * _LINE if _frame_settings(step) else _LINE
+    header += _LINE * len(_condition_lines(step, width))
     return header + 4 + concepts + inner + 2 * _FRAME_PAD
+
+
+def _condition_lines(step: Step, width: float) -> list[str]:
+    """A loop's condition, ``? ...``, wrapped to its frame."""
+    condition = step.get("condition")
+    return _wrap([f"? {condition}"], width - 12) if condition else []
+
+
+def _all_writes(steps: Sequence[Step]) -> list[str]:
+    """Every fact a leaf step of ``steps`` writes, nested ones included."""
+    facts: list[str] = []
+    for step in steps:
+        children = list(step.get("children") or ())
+        facts += _all_writes(children) if children else [str(f) for f in step.get("writes") or ()]
+    return facts
 
 
 Concept = tuple[Step, list["Concept"]]
@@ -230,21 +246,22 @@ def _draw(
     if is_loop:
         label += " (repeats)"
     _frame(d, x1, y, x2 - x1, height)
-    # A frame's citation goes under its name,
-    # with the settings, rather than beside it.
-    text(d, x1 + 6, y + _LINE, _fit(label, x2 - x1 - 12), ink="plain", is_name=True, anchor="start")
+    # The citation in the top right corner, as on a step's box; the name gets the rest.
+    room = x2 - x1 - 12
+    if citation:
+        text(d, x2 - 6, y + _LINE, citation, ink="faint", anchor="end")
+        room -= _width(citation) + 12
+    text(d, x1 + 6, y + _LINE, _fit(label, room), ink="plain", is_name=True, anchor="start")
     header = _LINE
     uses = list(step.get("uses") or ())
-    drawn = {str(u.get("field", "")).split(".")[0] for u in uses}
-    settings = ", ".join(f"{k}={v}" for k, v in step.get("parameters") or () if k not in drawn)
-    second = " · ".join(part for part in (citation, settings) if part)
-    if second:
+    settings = _frame_settings(step)
+    if settings:
         header += _LINE
-        text(d, x1 + 6, y + header, _fit(second, x2 - x1 - 12), ink="faint", anchor="start")
+        text(d, x1 + 6, y + header, _fit(settings, x2 - x1 - 12), ink="faint", anchor="start")
     # A loop's condition: when it runs another round, the check before each.
-    if step.get("condition"):
+    for line in _condition_lines(step, x2 - x1):
         header += _LINE
-        text(d, x1 + 6, y + header, _fit(f"? {step['condition']}", x2 - x1 - 12), ink="plain", anchor="start")
+        text(d, x1 + 6, y + header, line, ink="plain", anchor="start")
     inner_y = y + header + 4 + _FRAME_PAD
     # A loop's own concepts (the Fraktion size it compares with) before what it repeats.
     for concept in _tree(uses):
@@ -257,6 +274,12 @@ def _draw(
             mid = (x1 + x2) / 2
             arrow(d, mid, inner_y + child_height + 1, mid, inner_y + child_height + _GAP - 1)
         inner_y += child_height + _GAP
+
+
+def _frame_settings(step: Step) -> str:
+    """A frame's settings not drawn as a concept block inside it, as ``k=v, ...``."""
+    drawn = {str(u.get("field", "")).split(".")[0] for u in step.get("uses") or ()}
+    return ", ".join(f"{k}={v}" for k, v in step.get("parameters") or () if k not in drawn)
 
 
 def _frame(d: Drawing, x: float, y: float, w: float, h: float) -> None:
