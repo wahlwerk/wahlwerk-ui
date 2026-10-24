@@ -23,7 +23,7 @@ STEPS = [
                 "stage": 0,
                 "children": [
                     {"kind": "ApportionSeats", "title": "apportion", "citation": None, "parameters": [], "writes": ["entitlement"], "stage": 0, "children": []},
-                    {"kind": "DeductDistrictSeats", "title": "deduct", "citation": None, "parameters": [], "writes": ["list_seats", "overhang"], "stage": 1, "children": []},
+                    {"kind": "DeductUnitSeats", "title": "deduct", "citation": None, "parameters": [], "writes": ["list_seats", "overhang"], "stage": 1, "children": []},
                 ],
             }
         ],
@@ -63,7 +63,7 @@ def test_the_chain_down_to_the_formula_is_drawn():
     step = {
         "kind": "ElectPerUnit",
         "parameters": [["method", "Plurality"]],
-        "writes": ["districts"],
+        "writes": ["unit_winners"],
         "stage": 1,
         "uses": [{"field": "method", "kind": "Plurality", "formula": "wahlwerk.calc.plurality.plurality"}],
     }
