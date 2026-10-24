@@ -7,7 +7,7 @@ from wahlwerk_ui.plot.protocol import protocol_drawing, protocol_html, protocol_
 STEPS = [
     {"kind": "SumVotes", "title": "sum the tally", "citation": "Sec. 31", "parameters": [["level", "land"]], "writes": ["total:land"], "stage": 0, "children": []},
     {
-        "kind": "RepeatForMehrsitze",
+        "kind": "RaiseByOverhang",
         "title": "allocate, then repeat",
         "citation": "Sec. 35 (8)",
         "parameters": [["factor", "2"]],
@@ -34,7 +34,7 @@ STEPS = [
 
 def test_every_step_is_drawn_once_with_its_citation():
     svg = protocol_svg(STEPS)
-    for name in ("SumVotes", "RepeatForMehrsitze (repeats)", "allocate the seats of one chamber size", "ApportionSeats", "FormChamber"):
+    for name in ("SumVotes", "RaiseByOverhang (repeats)", "allocate the seats of one chamber size", "ApportionSeats", "FormChamber"):
         assert svg.count(name) == 1, name
     assert "Sec. 35 (8)" in svg and "factor=2" in svg
     assert "→ total:land" in svg
@@ -67,11 +67,12 @@ def test_the_chain_down_to_the_formula_is_drawn():
         "parameters": [["method", "Plurality"], ["level", "wahlkreis"]],
         "writes": ["unit_winners"],
         "stage": 1,
-        "uses": [{"field": "method", "kind": "Plurality", "parameters": [], "calls": [call]}],
+        "uses": [{"field": "method", "kind": "Plurality", "arguments": [["seats", "1"]], "parameters": [], "calls": [call]}],
     }
     plain = str(protocol_svg([{**step, "uses": []}]))
     drawn = str(protocol_svg([step]))
-    assert "plurality.plurality(votes, seats=1)" in drawn and "plurality(votes" not in plain
+    assert "plurality.plurality" in drawn and "plurality.plurality" not in plain
+    assert "seats=1" in drawn and "plurality(votes" not in drawn  # what it needs above, the name below
     assert 'class="step"' in drawn  # the step in the step colour
     assert drawn.count('class="paper"') == 1  # the concept, a paper block inside it
     assert "method=Plurality" not in drawn  # drawn as a block, not repeated as a setting

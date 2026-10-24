@@ -9,8 +9,8 @@ Takes plain data, one mapping per step, as the engine's
 - ``children`` (the steps it holds: a sequence's steps, a loop's block),
 - ``uses`` (optional: the core concepts it computes with, outermost first, each
   ``field``, ``kind``, ``parameters`` and ``calls``; a field ``method.method`` sits in
-  ``method``) and ``calls`` (optional: functions it calls itself); a call is
-  ``formula`` (its full name) and ``call`` (``plurality(votes, seats=1)``).
+  ``method``; ``arguments``, what the step hands it) and ``calls`` (optional: functions
+  it calls itself); a call is ``formula`` (its full name) and ``call`` (its signature).
 
 A step is a box of paper, its kind in the name ink and its settings faint under it;
 the paragraph it follows sits at its right edge, the facts it writes in the margin, its
@@ -57,7 +57,7 @@ def protocol_drawing(
     right = width - _PAD - margin
     if right - left < 160:
         raise ValueError(f"width {width} is too narrow for a protocol drawing")
-    heights = [_height(step) for step in steps]
+    heights = [_height(step, right - left) for step in steps]
     total = _PAD + sum(heights) + _GAP * max(len(steps) - 1, 0) + _PAD
     d = Drawing(width, total, scope=scope or scope_id("protocol", repr(steps), width), label=title or "protocol")
     y: float = _PAD
@@ -90,14 +90,15 @@ def protocol_html(steps: Sequence[Step], *, width: int = 640, title: str = "") -
 # ===========================================================
 # Layout
 # ===========================================================
-def _height(step: Step) -> float:
-    """The height of a step: a box with its lines and concepts, or a frame around its
-    children."""
+def _height(step: Step, width: float) -> float:
+    """The height of a step ``width`` pixels wide: a box with its lines and concepts, or
+    a frame around its children."""
     children = list(step.get("children") or ())
-    concepts = sum(_concept_height(c) + _CONCEPT_GAP for c in _tree(list(step.get("uses") or ())))
+    pad = _FRAME_PAD if children else _CONCEPT_PAD
+    concepts = sum(_concept_height(c, width - 2 * pad) + _CONCEPT_GAP for c in _tree(list(step.get("uses") or ())))
     if not children:
         return (2 + len(step.get("calls") or ())) * _LINE + 6 + concepts
-    inner = sum(_height(c) for c in children) + _GAP * (len(children) - 1)
+    inner = sum(_height(c, width - 2 * _FRAME_PAD) for c in children) + _GAP * (len(children) - 1)
     header = 2 * _LINE if step.get("parameters") or step.get("citation") else _LINE
     return header + 4 + concepts + inner + 2 * _FRAME_PAD
 
@@ -121,42 +122,58 @@ def _tree(uses: list[Step]) -> list[Concept]:
     return children(None)
 
 
-def _concept_height(concept: Concept) -> float:
+def _concept_height(concept: Concept, width: float) -> float:
     use, inner = concept
-    lines = 1 + len(use.get("calls") or ())
-    return lines * _LINE + 8 + sum(_concept_height(c) + _CONCEPT_GAP for c in inner)
+    lines = 1 + len(_wrap(_needs(use), width - 12)) + len(use.get("calls") or ())
+    return lines * _LINE + 8 + sum(_concept_height(c, width - 2 * _CONCEPT_PAD) + _CONCEPT_GAP for c in inner)
 
 
 def _draw_concept(d: Drawing, concept: Concept, x1: float, x2: float, y: float) -> None:
-    """A core concept as a block inside its step: paper, its name and settings, the
-    functions it calls, and the concepts it holds, nested the same way."""
+    """A core concept as a block inside its step: paper, its name, what it needs (the
+    arguments the step hands it and its own settings), the functions it calls by name,
+    and the concepts it holds, nested the same way."""
     use, inner = concept
-    box(d, x1, y, x2 - x1, _concept_height(concept))
-    name = str(use.get("kind", ""))
-    text(d, x1 + 6, y + _LINE, name, ink="strong", is_name=True, anchor="start")
-    settings = ", ".join(f"{k}={v}" for k, v in use.get("parameters") or ())
-    if settings:
-        room = x2 - x1 - 18 - _width(name)
-        text(d, x2 - 6, y + _LINE, _fit(settings, room), ink="faint", anchor="end")
+    box(d, x1, y, x2 - x1, _concept_height(concept, x2 - x1))
+    text(d, x1 + 6, y + _LINE, str(use.get("kind", "")), ink="strong", is_name=True, anchor="start")
     line_y = y + _LINE
+    for line in _wrap(_needs(use), x2 - x1 - 12):
+        line_y += _LINE
+        text(d, x1 + 6, line_y, _fit(line, x2 - x1 - 12), ink="faint", anchor="start")
     for call in use.get("calls") or ():
         line_y += _LINE
         text(d, x1 + 6, line_y, _fit(_call(call), x2 - x1 - 12), ink="plain", anchor="start")
     inner_y = line_y + 6
     for child in inner:
         _draw_concept(d, child, x1 + _CONCEPT_PAD, x2 - _CONCEPT_PAD, inner_y)
-        inner_y += _concept_height(child) + _CONCEPT_GAP
+        inner_y += _concept_height(child, x2 - x1 - 2 * _CONCEPT_PAD) + _CONCEPT_GAP
+
+
+def _needs(use: Step) -> list[str]:
+    """``votes=erststimme per nominee``, ``seats=1``: what a concept is given and set to."""
+    return [f"{k}={v}" for k, v in (*(use.get("arguments") or ()), *(use.get("parameters") or ()))]
+
+
+def _wrap(items: list[str], room: float) -> list[str]:
+    """``items`` joined with commas into lines of at most ``room`` pixels."""
+    lines: list[str] = []
+    for item in items:
+        if lines and _width(f"{lines[-1]}, {item}") <= room:
+            lines[-1] = f"{lines[-1]}, {item}"
+        else:
+            if lines:
+                lines[-1] += ","
+            lines.append(item)
+    return lines
 
 
 def _call(call: Step) -> str:
-    """``remainder.largest_remainder(votes, seats, quota, first=None)``: the module of
-    ``wahlwerk.calc`` and the call as written."""
-    module = str(call.get("formula", "")).removeprefix("wahlwerk.calc.").rsplit(".", 1)[0]
-    return f"{module}.{call.get('call', '')}"
+    """``remainder.largest_remainder``: the function by name, its module of
+    ``wahlwerk.calc`` first; what it needs stands above it."""
+    return str(call.get("formula", "")).removeprefix("wahlwerk.calc.")
 
 
 def _draw(d: Drawing, step: Step, x1: float, x2: float, y: float, edge: float, *, show_stage: bool) -> None:
-    height = _height(step)
+    height = _height(step, x2 - x1)
     kind = str(step.get("kind", ""))
     citation = step.get("citation") or ""
     if show_stage and "stage" in step:
@@ -181,7 +198,7 @@ def _draw(d: Drawing, step: Step, x1: float, x2: float, y: float, edge: float, *
         inner_y = line_y + 6
         for concept in _tree(uses):
             _draw_concept(d, concept, x1 + _CONCEPT_PAD, x2 - _CONCEPT_PAD, inner_y)
-            inner_y += _concept_height(concept) + _CONCEPT_GAP
+            inner_y += _concept_height(concept, x2 - x1 - 2 * _CONCEPT_PAD) + _CONCEPT_GAP
         return
     is_loop = kind.startswith(_LOOPS)
     label = str(step.get("title", kind)) if kind == "StepSequence" else kind
@@ -203,9 +220,9 @@ def _draw(d: Drawing, step: Step, x1: float, x2: float, y: float, edge: float, *
     # A loop's own concepts (the Fraktion size it compares with) before what it repeats.
     for concept in _tree(uses):
         _draw_concept(d, concept, x1 + _FRAME_PAD, x2 - _FRAME_PAD, inner_y)
-        inner_y += _concept_height(concept) + _CONCEPT_GAP
+        inner_y += _concept_height(concept, x2 - x1 - 2 * _FRAME_PAD) + _CONCEPT_GAP
     for index, child in enumerate(children):
-        child_height = _height(child)
+        child_height = _height(child, x2 - x1 - 2 * _FRAME_PAD)
         _draw(d, child, x1 + _FRAME_PAD, x2 - _FRAME_PAD, inner_y, edge, show_stage=False)
         if index + 1 < len(children):
             mid = (x1 + x2) / 2
