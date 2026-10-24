@@ -45,6 +45,7 @@ told otherwise:
 | `plot/chamber/seat.py` | `seat_layout` (hemicycle geometry), `hemicycle_drawing`, `hemicycle_svg` (every seat drawn) |
 | `plot/chamber/pie.py` | `half_pie_drawing`, `half_pie_svg` (one wedge per group; `hole` for a half ring) |
 | `plot/chamber/card.py` | `chamber_html(groups, kind="seats" \| "pie", majority=False)`: title, plot and legend under one style block |
+| `plot/protocol.py` | `protocol_drawing`, `protocol_svg`, `protocol_html(steps, width=640, title="")`: a protocol as a technical drawing from plain step data (the engine's `flow.protocol_data`): steps as paper boxes in order with their citation and settings, a sequence or loop as a dashed frame around the steps it holds, the stage in the gutter, the facts written in the margin |
 
 Plots are pure-Python SVG, kept small (default 240 px wide) for inline notebook display.
 Geometry uses floats (it is drawing, not arithmetic on votes), but the seats-per-ring
