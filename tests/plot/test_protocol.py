@@ -35,7 +35,7 @@ def test_every_step_is_drawn_once_with_its_citation():
     svg = protocol_svg(STEPS)
     for name in ("SumVotes", "RaiseByOverhang (repeats)", "AllocateSeats", "ApportionSeats", "FillVacantSeatsFromLists"):
         assert svg.count(name) == 1, name
-    assert "Sec. 35 (8)" in svg and "factor=2" in svg
+    assert "Sec. 35 (8)" in svg and ">factor=<" in svg and ">2<" in svg
     assert ">→<" in svg and ">total:land<" in svg
 
 
@@ -120,7 +120,10 @@ def test_a_step_shows_its_arguments_under_its_title():
     assert ">SingleMandatePerUnit<" in svg  # the title stays as it is
     # What it is handed, faint; what a counterfactual can swap, strong, on its own line.
     assert "faint" in _label(svg, "votes=erststimme by wahlkreis × option")
-    assert "strong" in _label(svg, "method=Plurality")
+    # Only the value is marked: its key plain, the value bold and blue on a pill.
+    assert _label(svg, "method=") == "label plain"
+    assert _label(svg, "Plurality") == "label selected name"
+    assert 'class="pill"' in svg
 
 
 def _label(svg, content):
@@ -129,3 +132,11 @@ def _label(svg, content):
 
     (cls,) = re.findall(r'<text class="([^"]+)"[^>]*>' + re.escape(content) + "<", svg)
     return cls
+
+
+def test_a_long_fact_wraps_in_the_margin():
+    step = {"kind": "SumGroupBy", "parameters": [["section", "erststimme"]],
+            "writes": ["erststimme by wahlkreis × option and more words"], "stage": 0, "children": []}
+    svg = protocol_svg([step], width=480)
+    assert "…" not in svg  # broken at its words, not cut
+    assert ">erststimme by<" in svg or ">erststimme by wahlkreis<" in svg

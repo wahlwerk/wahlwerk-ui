@@ -57,7 +57,7 @@ def protocol_drawing(
     """The protocol of ``steps`` as a :class:`~wahlwerk_ui.svg.Drawing`."""
     # The facts written, at the right: as wide as the longest, at most a third.
     longest = max((_width(f"→ {fact}") for fact in _all_writes(steps)), default=0.0)
-    margin = int(min(width // 3, max(120.0, longest + 24)))
+    margin = int(min(width // 3, max(120.0, longest + 24)))  # longer facts wrap
     left = _PAD + _GUTTER
     right = width - _PAD - margin
     if right - left < 160:
@@ -159,12 +159,12 @@ def _draw_concept(d: Drawing, concept: Concept, x1: float, x2: float, y: float) 
     box(d, x1, y, x2 - x1, _concept_height(concept, x2 - x1))
     text(d, x1 + 6, y + _LINE, str(use.get("kind", "")), ink="strong", is_name=True, anchor="start")
     line_y = y + _LINE
-    own = {str(v) for _, v in use.get("parameters") or () if _TOKEN.fullmatch(str(v))}
     for line, ink in _needs_lines(use, x2 - x1):
         line_y += _LINE
         if ink == SETTING:
-            _pills(d, x1 + 6, line_y, line, own)
-        text(d, x1 + 6, line_y, line, ink=ink, is_name=ink == SETTING, anchor="start")
+            _setting_text(d, x1 + 6, line_y, line)
+        else:
+            text(d, x1 + 6, line_y, line, ink=ink, anchor="start")
     for call in use.get("calls") or ():
         line_y += _LINE
         text(d, x1 + 6, line_y, _fit(_call(call), x2 - x1 - 12), ink="plain", anchor="start")
@@ -207,16 +207,44 @@ def _pills(d: Drawing, x: float, y: float, line: str, words: set[str]) -> None:
             )
 
 
+_VALUE = re.compile(r"=([^,]+)")
+"""A setting's value in a line of ``key=value, ...``."""
+
+
+def _setting_text(d: Drawing, x: float, y: float, line: str) -> None:
+    """A line of settings: each key in plain ink, its value bold and blue on a pill, the
+    value being what a counterfactual changes."""
+    position = 0
+    for match in _VALUE.finditer(line):
+        start, end = match.span(1)
+        _segment(d, x, y, line, position, start, ink="plain")
+        value = match.group(1).rstrip()
+        _pills(d, x + start * CHAR_WIDTH_PX, y, value, {value})
+        text(d, x + start * CHAR_WIDTH_PX, y, value, ink="selected", is_name=True, anchor="start")
+        position = end
+    _segment(d, x, y, line, position, len(line), ink="plain")
+
+
+def _segment(d: Drawing, x: float, y: float, line: str, start: int, end: int, *, ink: str) -> None:
+    """``line[start:end]`` where it stands in the line; spaces at its ends dropped, its
+    place kept (a label's leading space would collapse)."""
+    piece = line[start:end]
+    stripped = piece.strip()
+    if stripped:
+        offset = start + len(piece) - len(piece.lstrip())
+        text(d, x + offset * CHAR_WIDTH_PX, y, stripped, ink=ink, anchor="start")
+
+
 Line = tuple[str, str]
 """A line of text and its ink."""
 
 WIRING = "faint"
 """The ink of what a step or concept is handed: the facts it takes, fixed by the protocol."""
 
-SETTING = "strong"
-"""The ink of what can be swapped: a setting a law sets and a counterfactual changes
-(``seats=83``, ``share=1/20``, ``factor=2``), drawn bold like the names of steps and
-concepts, which can be swapped whole; what a step is handed stays faint."""
+SETTING = "selected"
+"""What can be swapped: a setting a law sets and a counterfactual changes (``seats=83``,
+``share=1/20``, ``factor=2``); its value bold and blue on a pill, its key plain. What a
+step is handed stays faint."""
 
 
 def _lines(wiring: list[str], settings: list[str], width: float) -> list[Line]:
@@ -303,8 +331,11 @@ def _draw(
         lines = _argument_lines(step, x2 - x1)
         words = _words(step)
         for number, (line, ink) in enumerate(lines, start=2):
+            if ink == SETTING:
+                _setting_text(d, x1 + 6, y + number * _LINE, line)
+                continue
             _pills(d, x1 + 6, y + number * _LINE, line, words)
-            text(d, x1 + 6, y + number * _LINE, line, ink=ink, is_name=ink == SETTING, anchor="start")
+            text(d, x1 + 6, y + number * _LINE, line, ink=ink, anchor="start")
         # The concepts it computes with first, then the functions it calls itself with
         # what they give (the caucus size: the quota, then the whole seats of it).
         inner_y = y + (1 + len(lines)) * _LINE + 6
@@ -336,8 +367,7 @@ def _draw(
     settings = _frame_settings(step)
     if settings:
         header += _LINE
-        _pills(d, x1 + 6, y + header, _fit(settings, x2 - x1 - 12), _words(step))
-        text(d, x1 + 6, y + header, _fit(settings, x2 - x1 - 12), ink=SETTING, is_name=True, anchor="start")
+        _setting_text(d, x1 + 6, y + header, _fit(settings, x2 - x1 - 12))
     # A loop's condition: when it runs another round, the check before each.
     for line in _condition_lines(step, x2 - x1):
         header += _LINE
@@ -368,9 +398,10 @@ def _frame(d: Drawing, x: float, y: float, w: float, h: float) -> None:
 
 
 def _writes(d: Drawing, step: Step, y: float, height: float, column: tuple[float, float]) -> None:
-    """The facts a leaf step writes, one per line, in the margin column beside its box:
-    every step's facts start at the same x, outside every frame, however deep the step
-    is nested. As many lines as the box is tall; the last says how many more there are."""
+    """The facts a leaf step writes, one under the other, in the margin column beside
+    its box, each wrapped at its words to the margin: every step's facts start at the
+    same x, outside every frame, however deep the step is nested. As many lines as the
+    box is tall; the last says how many more there are."""
     if step.get("children"):
         return
     facts = [str(fact) for fact in step.get("writes") or ()]
@@ -378,17 +409,31 @@ def _writes(d: Drawing, step: Step, y: float, height: float, column: tuple[float
         return
     start, end = column
     x, room = start + 10, end - start - 10
-    fits = max(1, int((height - 4) // _LINE))
-    if len(facts) > fits:
-        facts = [*facts[: fits - 1], f"+{len(facts) - fits + 1} more"]
     # The arrow once, the facts under each other after it (SVG collapses leading spaces).
-    text(d, x, y + _LINE, "→", ink="plain", anchor="start")
     indent = _width("→ ")
+    lines: list[str] = []
+    for fact in facts:
+        lines += _break(fact, room - indent)
+    fits = max(1, int((height - 4) // _LINE))
+    if len(lines) > fits:
+        lines = [*lines[: fits - 1], f"+{len(lines) - fits + 1} more"]
+    text(d, x, y + _LINE, "→", ink="plain", anchor="start")
     words = _words(step)
-    for number, fact in enumerate(facts, start=1):
-        label = _fit(fact, room - indent)
-        _pills(d, x + indent, y + number * _LINE, label, words)
-        text(d, x + indent, y + number * _LINE, label, ink="plain", anchor="start")
+    for number, line in enumerate(lines, start=1):
+        _pills(d, x + indent, y + number * _LINE, line, words)
+        text(d, x + indent, y + number * _LINE, line, ink="plain", anchor="start")
+
+
+def _break(label: str, room: float) -> list[str]:
+    """``label`` broken at its spaces into lines of at most ``room`` pixels; a word
+    longer than a line is cut."""
+    lines: list[str] = []
+    for word in label.split(" "):
+        if lines and _width(f"{lines[-1]} {word}") <= room:
+            lines[-1] = f"{lines[-1]} {word}"
+        else:
+            lines.append(word)
+    return [_fit(line, room) for line in lines]
 
 
 def _width(label: str) -> float:

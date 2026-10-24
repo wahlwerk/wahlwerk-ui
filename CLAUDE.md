@@ -78,7 +78,7 @@ statement; the rules:
   are the subject and the only saturated colour. Before adding a stroke, decide its rung.
   A lighter ink before a thinner line, never a thicker one.
 - **One face, one size, four inks** for every label (`FONT_FAMILY`, the code face, at
-  `FONT_SIZE_PX`): faint, plain, strong, and strong at `LABEL_WEIGHT` for the subject. A
+  `FONT_SIZE_PX`): faint, plain, strong, and strong at `LABEL_WEIGHT` for the subject. One more, `selected` (the subject's blue), only for a setting's value in a protocol drawing, bold on its pill: the one thing a counterfactual changes. A
   plot that needs a bigger label needs fewer labels. In-plot text is lowercase.
 - **Both themes.** Every colour is a `Tone`. Shown in a notebook or page, a drawing follows
   `prefers-color-scheme`, JupyterLab's `data-jp-theme-light` and `data-theme`; `Svg.save`

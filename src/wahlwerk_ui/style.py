@@ -218,6 +218,8 @@ _RULES: tuple[tuple[str, str], ...] = (
     (".faint", "fill:{faint};color:{faint}"),
     (".plain", "fill:{plain};color:{plain}"),
     (".strong", "fill:{strong};color:{strong}"),
+    # A setting's value, on its pill: the subject's line colour, the only blue label.
+    (".selected", "fill:{subject-line};color:{subject-line}"),
     (".name", f"font-weight:{LABEL_WEIGHT}"),
     (
         "&.card",

@@ -150,9 +150,11 @@ class Drawing:
         is_name: bool = False,
         anchor: str = "middle",
     ) -> ET.Element:
-        """A label: one face, one size, ink ``faint``, ``plain`` or ``strong``."""
-        if ink not in ("faint", "plain", "strong"):
-            raise ValueError(f"ink must be 'faint', 'plain' or 'strong', got {ink!r}")
+        """A label: one face, one size, ink ``faint``, ``plain`` or ``strong``; or
+        ``selected``, a setting's value in a protocol drawing, the one thing a
+        counterfactual changes."""
+        if ink not in ("faint", "plain", "strong", "selected"):
+            raise ValueError(f"ink must be 'faint', 'plain', 'strong' or 'selected', got {ink!r}")
         classes = f"label {ink}" + (" name" if is_name else "")
         return self.add(
             "labels",
