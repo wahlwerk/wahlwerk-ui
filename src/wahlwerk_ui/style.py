@@ -207,6 +207,8 @@ _RULES: tuple[tuple[str, str], ...] = (
         ".step-frame",
         f"fill:none;stroke:{{step-line}};stroke-width:{STROKE_FRAME_PX};stroke-dasharray:{DASH}",
     ),
+    # A setting's value marked like a selection in code, and where it shows again.
+    (".pill", "fill:{subject-fill};stroke:none"),
     (".arrow", f"fill:none;stroke:{{content}};stroke-width:{STROKE_FRAME_PX}"),
     (".arrowhead", "fill:{content}"),
     (".rule", f"fill:none;stroke:{{structure}};stroke-width:{STROKE_HAIRLINE_PX}"),

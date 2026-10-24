@@ -26,6 +26,7 @@ Arrows run from each step to the next. Nothing here knows about elections.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from html import escape
 from typing import Any
@@ -158,8 +159,11 @@ def _draw_concept(d: Drawing, concept: Concept, x1: float, x2: float, y: float) 
     box(d, x1, y, x2 - x1, _concept_height(concept, x2 - x1))
     text(d, x1 + 6, y + _LINE, str(use.get("kind", "")), ink="strong", is_name=True, anchor="start")
     line_y = y + _LINE
+    own = {str(v) for _, v in use.get("parameters") or () if _TOKEN.fullmatch(str(v))}
     for line, ink in _needs_lines(use, x2 - x1):
         line_y += _LINE
+        if ink == SETTING:
+            _pills(d, x1 + 6, line_y, line, own)
         text(d, x1 + 6, line_y, line, ink=ink, is_name=ink == SETTING, anchor="start")
     for call in use.get("calls") or ():
         line_y += _LINE
@@ -168,6 +172,39 @@ def _draw_concept(d: Drawing, concept: Concept, x1: float, x2: float, y: float) 
     for child in inner:
         _draw_concept(d, child, x1 + _CONCEPT_PAD, x2 - _CONCEPT_PAD, inner_y)
         inner_y += _concept_height(child, x2 - x1 - 2 * _CONCEPT_PAD) + _CONCEPT_GAP
+
+
+_TOKEN = re.compile(r"[A-Za-z0-9_./-]+")
+"""A word of a label: a setting's value, a part of a fact's name."""
+
+
+def _words(step: Step) -> set[str]:
+    """The values a step is set to, as words: its settings shown (not those drawn as a
+    concept) and those its arguments' facts name (``erststimme`` for
+    ``section=erststimme``). Where one shows, it gets a pill."""
+    drawn = {str(u.get("field", "")).split(".")[0] for u in step.get("uses") or ()}
+    values = [str(v) for k, v in step.get("parameters") or () if k not in drawn]
+    values += [str(v) for _, v in step.get("named") or ()]
+    return {v for v in values if _TOKEN.fullmatch(v)}
+
+
+def _pills(d: Drawing, x: float, y: float, line: str, words: set[str]) -> None:
+    """A pill behind each word of ``line`` (drawn from ``x``, baseline ``y``) that is
+    one of ``words``: the setting, and where it shows again, marked alike."""
+    for match in _TOKEN.finditer(line):
+        if match.group() in words:
+            d.add(
+                "dimension",
+                "rect",
+                {
+                    "class": "pill",
+                    "x": num(x + match.start() * CHAR_WIDTH_PX - 2),
+                    "y": num(y - 0.82 * FONT_SIZE_PX),
+                    "width": num(len(match.group()) * CHAR_WIDTH_PX + 4),
+                    "height": num(1.12 * FONT_SIZE_PX),
+                    "rx": "3",
+                },
+            )
 
 
 Line = tuple[str, str]
@@ -264,7 +301,9 @@ def _draw(
         uses = list(step.get("uses") or ())
         # Its arguments, the facts it takes, and its settings: the step as a call.
         lines = _argument_lines(step, x2 - x1)
+        words = _words(step)
         for number, (line, ink) in enumerate(lines, start=2):
+            _pills(d, x1 + 6, y + number * _LINE, line, words)
             text(d, x1 + 6, y + number * _LINE, line, ink=ink, is_name=ink == SETTING, anchor="start")
         # The concepts it computes with first, then the functions it calls itself with
         # what they give (the caucus size: the quota, then the whole seats of it).
@@ -297,6 +336,7 @@ def _draw(
     settings = _frame_settings(step)
     if settings:
         header += _LINE
+        _pills(d, x1 + 6, y + header, _fit(settings, x2 - x1 - 12), _words(step))
         text(d, x1 + 6, y + header, _fit(settings, x2 - x1 - 12), ink=SETTING, is_name=True, anchor="start")
     # A loop's condition: when it runs another round, the check before each.
     for line in _condition_lines(step, x2 - x1):
@@ -344,8 +384,11 @@ def _writes(d: Drawing, step: Step, y: float, height: float, column: tuple[float
     # The arrow once, the facts under each other after it (SVG collapses leading spaces).
     text(d, x, y + _LINE, "→", ink="plain", anchor="start")
     indent = _width("→ ")
+    words = _words(step)
     for number, fact in enumerate(facts, start=1):
-        text(d, x + indent, y + number * _LINE, _fit(fact, room - indent), ink="plain", anchor="start")
+        label = _fit(fact, room - indent)
+        _pills(d, x + indent, y + number * _LINE, label, words)
+        text(d, x + indent, y + number * _LINE, label, ink="plain", anchor="start")
 
 
 def _width(label: str) -> float:
