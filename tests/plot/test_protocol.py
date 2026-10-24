@@ -105,3 +105,17 @@ def test_outcomes_stand_in_one_column_outside_every_frame():
     assert len(xs) == 1  # nested or not, every fact starts at the same x
     (x,) = xs
     assert x > 640 - min(200, 640 // 3) - 8  # in the margin, right of the boxes
+
+
+def test_a_step_shows_its_arguments_under_its_title():
+    step = {
+        "kind": "SingleMandatePerUnit",
+        "inputs": [["votes", "wahlkreis:option:erststimme"]],
+        "parameters": [["method", "Plurality"]],
+        "writes": ["unit_mandates"],
+        "stage": 0,
+        "children": [],
+    }
+    svg = protocol_svg([step])
+    assert ">votes=wahlkreis:option:erststimme, method=Plurality<" in svg
+    assert ">SingleMandatePerUnit<" in svg  # the title stays as it is

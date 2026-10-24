@@ -4,7 +4,8 @@ Takes plain data, one mapping per step, as the engine's
 ``wahlwerk.process.allocation.flow.protocol_data`` writes it:
 
 - ``kind`` (``"ApportionSeats"``), ``title`` (what it does, a few words),
-- ``citation`` (``"Sec. 35 (3)"`` or ``None``), ``parameters`` (pairs of field and value),
+- ``citation`` (``"Sec. 35 (3)"`` or ``None``), ``inputs`` (pairs of argument and the
+  fact it takes, optional), ``parameters`` (pairs of field and value),
 - ``writes`` (the facts it establishes), ``stage`` (0 for a step reading only the input),
 - ``children`` (the steps it holds: a sequence's steps, a loop's block), ``condition``
   (optional: when a loop runs another round, in words),
@@ -101,7 +102,8 @@ def _height(step: Step, width: float) -> float:
     concepts = sum(_concept_height(c, width - 2 * pad) + _CONCEPT_GAP for c in _tree(list(step.get("uses") or ())))
     if not children:
         given = len(_wrap(_given(step), width - 12)) if step.get("calls") else 0
-        return (2 + given + len(step.get("calls") or ())) * _LINE + 6 + concepts
+        lines = len(_argument_lines(step, width))
+        return (1 + lines + given + len(step.get("calls") or ())) * _LINE + 6 + concepts
     inner = sum(_height(c, width - 2 * _FRAME_PAD) for c in children) + _GAP * (len(children) - 1)
     header = 2 * _LINE if _frame_settings(step) else _LINE
     header += _LINE * len(_condition_lines(step, width))
@@ -173,6 +175,18 @@ def _needs(use: Step) -> list[str]:
     return [f"{k}={v}" for k, v in (*(use.get("arguments") or ()), *(use.get("parameters") or ()))]
 
 
+def _argument_lines(step: Step, width: float) -> list[str]:
+    """A step's arguments as it is called, ``votes=wahlkreis:option:erststimme``, then
+    its settings not drawn as a concept, wrapped to its box; its title when it has
+    neither."""
+    drawn = {str(u.get("field", "")).split(".")[0] for u in step.get("uses") or ()}
+    items = [f"{k}={v}" for k, v in step.get("inputs") or ()]
+    items += [f"{k}={v}" for k, v in step.get("parameters") or () if k not in drawn]
+    if not items:
+        return [_fit(str(step.get("title", "")), width - 12)]
+    return [_fit(line, width - 12) for line in _wrap(items, width - 12)]
+
+
 def _given(step: Step) -> list[str]:
     """What a step hands the functions it calls itself, as ``seats=chamber_size``."""
     return [f"{k}={v}" for k, v in step.get("arguments") or ()]
@@ -223,12 +237,13 @@ def _draw(
         if citation:
             text(d, x2 - 6, y + _LINE, citation, ink="faint", anchor="end")
         uses = list(step.get("uses") or ())
-        drawn = {str(u.get("field", "")).split(".")[0] for u in uses}
-        settings = ", ".join(f"{k}={v}" for k, v in step.get("parameters") or () if k not in drawn)
-        text(d, x1 + 6, y + 2 * _LINE, _fit(settings or str(step.get("title", "")), x2 - x1 - 12), ink="faint", anchor="start")
+        # Its arguments, the facts it takes, and its settings: the step as a call.
+        lines = _argument_lines(step, x2 - x1)
+        for number, line in enumerate(lines, start=2):
+            text(d, x1 + 6, y + number * _LINE, line, ink="faint", anchor="start")
         # The concepts it computes with first, then the functions it calls itself with
         # what they give (the caucus size: the quota, then the whole seats of it).
-        inner_y = y + 2 * _LINE + 6
+        inner_y = y + (1 + len(lines)) * _LINE + 6
         for concept in _tree(uses):
             _draw_concept(d, concept, x1 + _CONCEPT_PAD, x2 - _CONCEPT_PAD, inner_y)
             inner_y += _concept_height(concept, x2 - x1 - 2 * _CONCEPT_PAD) + _CONCEPT_GAP
