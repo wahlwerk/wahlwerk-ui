@@ -6,7 +6,8 @@ Takes plain data, one mapping per step, as the engine's
 - ``kind`` (``"ApportionSeats"``), ``title`` (what it does, a few words),
 - ``citation`` (``"Sec. 35 (3)"`` or ``None``), ``parameters`` (pairs of field and value),
 - ``writes`` (the facts it establishes), ``stage`` (0 for a step reading only the input),
-- ``children`` (the steps it holds: a sequence's steps, a loop's block),
+- ``children`` (the steps it holds: a sequence's steps, a loop's block), ``condition``
+  (optional: when a loop runs another round, in words),
 - ``uses`` (optional: the core concepts it computes with, outermost first, each
   ``field``, ``kind``, ``parameters`` and ``calls``; a field ``method.method`` sits in
   ``method``; ``arguments``, what the step hands it) and ``calls`` (optional: functions
@@ -101,6 +102,8 @@ def _height(step: Step, width: float) -> float:
         return (2 + given + len(step.get("calls") or ())) * _LINE + 6 + concepts
     inner = sum(_height(c, width - 2 * _FRAME_PAD) for c in children) + _GAP * (len(children) - 1)
     header = 2 * _LINE if step.get("parameters") or step.get("citation") else _LINE
+    if step.get("condition"):
+        header += _LINE
     return header + 4 + concepts + inner + 2 * _FRAME_PAD
 
 
@@ -236,6 +239,10 @@ def _draw(d: Drawing, step: Step, x1: float, x2: float, y: float, edge: float, *
     if second:
         header += _LINE
         text(d, x1 + 6, y + header, _fit(second, x2 - x1 - 12), ink="faint", anchor="start")
+    # A loop's condition: when it runs another round, the check before each.
+    if step.get("condition"):
+        header += _LINE
+        text(d, x1 + 6, y + header, _fit(f"? {step['condition']}", x2 - x1 - 12), ink="plain", anchor="start")
     inner_y = y + header + 4 + _FRAME_PAD
     # A loop's own concepts (the Fraktion size it compares with) before what it repeats.
     for concept in _tree(uses):

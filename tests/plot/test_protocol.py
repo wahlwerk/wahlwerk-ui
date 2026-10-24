@@ -27,13 +27,13 @@ STEPS = [
             }
         ],
     },
-    {"kind": "FormChamber", "title": "form the chamber", "citation": None, "parameters": [], "writes": ["chamber"], "stage": 2, "children": []},
+    {"kind": "FillVacantSeatsFromLists", "title": "form the chamber", "citation": None, "parameters": [], "writes": ["chamber"], "stage": 2, "children": []},
 ]
 
 
 def test_every_step_is_drawn_once_with_its_citation():
     svg = protocol_svg(STEPS)
-    for name in ("SumVotes", "RaiseByOverhang (repeats)", "AllocateSeats", "ApportionSeats", "FormChamber"):
+    for name in ("SumVotes", "RaiseByOverhang (repeats)", "AllocateSeats", "ApportionSeats", "FillVacantSeatsFromLists"):
         assert svg.count(name) == 1, name
     assert "Sec. 35 (8)" in svg and "factor=2" in svg
     assert "→ total:land" in svg
@@ -85,3 +85,9 @@ def test_concepts_nest_like_steps():
     step = {"kind": "ApportionSeats", "parameters": [], "writes": [], "stage": 0, "uses": [outer, inner]}
     drawn = protocol_drawing([step])
     assert str(drawn.svg()).count('class="paper"') == 2
+
+
+def test_a_loop_shows_its_condition():
+    looped = [dict(STEPS[1], condition="while overhang > 0")]
+    assert "? while overhang &gt; 0" in protocol_svg(looped)
+    assert "while overhang" not in protocol_svg(STEPS[1:2])
