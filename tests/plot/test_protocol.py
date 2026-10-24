@@ -15,8 +15,7 @@ STEPS = [
         "stage": 1,
         "children": [
             {
-                "kind": "StepSequence",
-                "title": "allocate the seats of one chamber size",
+                "kind": "AllocateSeats",
                 "citation": None,
                 "parameters": [],
                 "writes": ["overhang"],
@@ -34,7 +33,7 @@ STEPS = [
 
 def test_every_step_is_drawn_once_with_its_citation():
     svg = protocol_svg(STEPS)
-    for name in ("SumVotes", "RaiseByOverhang (repeats)", "allocate the seats of one chamber size", "ApportionSeats", "FormChamber"):
+    for name in ("SumVotes", "RaiseByOverhang (repeats)", "AllocateSeats", "ApportionSeats", "FormChamber"):
         assert svg.count(name) == 1, name
     assert "Sec. 35 (8)" in svg and "factor=2" in svg
     assert "→ total:land" in svg

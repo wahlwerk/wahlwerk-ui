@@ -97,7 +97,8 @@ def _height(step: Step, width: float) -> float:
     pad = _FRAME_PAD if children else _CONCEPT_PAD
     concepts = sum(_concept_height(c, width - 2 * pad) + _CONCEPT_GAP for c in _tree(list(step.get("uses") or ())))
     if not children:
-        return (2 + len(step.get("calls") or ())) * _LINE + 6 + concepts
+        given = len(_wrap(_given(step), width - 12)) if step.get("calls") else 0
+        return (2 + given + len(step.get("calls") or ())) * _LINE + 6 + concepts
     inner = sum(_height(c, width - 2 * _FRAME_PAD) for c in children) + _GAP * (len(children) - 1)
     header = 2 * _LINE if step.get("parameters") or step.get("citation") else _LINE
     return header + 4 + concepts + inner + 2 * _FRAME_PAD
@@ -153,6 +154,11 @@ def _needs(use: Step) -> list[str]:
     return [f"{k}={v}" for k, v in (*(use.get("arguments") or ()), *(use.get("parameters") or ()))]
 
 
+def _given(step: Step) -> list[str]:
+    """What a step hands the functions it calls itself, as ``seats=chamber_size``."""
+    return [f"{k}={v}" for k, v in step.get("arguments") or ()]
+
+
 def _wrap(items: list[str], room: float) -> list[str]:
     """``items`` joined with commas into lines of at most ``room`` pixels."""
     lines: list[str] = []
@@ -206,16 +212,20 @@ def _draw(d: Drawing, step: Step, x1: float, x2: float, y: float, edge: float, *
             _draw_concept(d, concept, x1 + _CONCEPT_PAD, x2 - _CONCEPT_PAD, inner_y)
             inner_y += _concept_height(concept, x2 - x1 - 2 * _CONCEPT_PAD) + _CONCEPT_GAP
         line_y = inner_y - 6
+        if step.get("calls"):
+            for line in _wrap(_given(step), x2 - x1 - 12):
+                line_y += _LINE
+                text(d, x1 + 6, line_y, _fit(line, x2 - x1 - 12), ink="faint", anchor="start")
         for call in step.get("calls") or ():
             line_y += _LINE
             text(d, x1 + 6, line_y, _fit(_call(call), x2 - x1 - 12), ink="plain", anchor="start")
         return
     is_loop = kind.startswith(_LOOPS)
-    label = str(step.get("title", kind)) if kind == "StepSequence" else kind
+    label = kind  # a sequence is a step, named like one
     if is_loop:
         label += " (repeats)"
     _frame(d, x1, y, x2 - x1, height)
-    # A frame's title is often long (a sequence's name), so its citation goes under it,
+    # A frame's citation goes under its name,
     # with the settings, rather than beside it.
     text(d, x1 + 6, y + _LINE, _fit(label, x2 - x1 - 12), ink="plain", is_name=True, anchor="start")
     header = _LINE
