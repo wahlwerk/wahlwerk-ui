@@ -159,10 +159,18 @@ def _wrap(items: list[str], room: float) -> list[str]:
     for item in items:
         if lines and _width(f"{lines[-1]}, {item}") <= room:
             lines[-1] = f"{lines[-1]}, {item}"
-        else:
-            if lines:
-                lines[-1] += ","
-            lines.append(item)
+            continue
+        if lines:
+            lines[-1] += ","
+        # An item too long for a line breaks at its spaces.
+        line = ""
+        for word in item.split(" "):
+            if line and _width(f"{line} {word}") > room:
+                lines.append(line)
+                line = "  " + word
+            else:
+                line = f"{line} {word}" if line else word
+        lines.append(line)
     return lines
 
 
@@ -191,14 +199,16 @@ def _draw(d: Drawing, step: Step, x1: float, x2: float, y: float, edge: float, *
         drawn = {str(u.get("field", "")).split(".")[0] for u in uses}
         settings = ", ".join(f"{k}={v}" for k, v in step.get("parameters") or () if k not in drawn)
         text(d, x1 + 6, y + 2 * _LINE, _fit(settings or str(step.get("title", "")), x2 - x1 - 12), ink="faint", anchor="start")
-        line_y = y + 2 * _LINE
-        for call in step.get("calls") or ():
-            line_y += _LINE
-            text(d, x1 + 6, line_y, _fit(_call(call), x2 - x1 - 12), ink="plain", anchor="start")
-        inner_y = line_y + 6
+        # The concepts it computes with first, then the functions it calls itself with
+        # what they give (the caucus size: the quota, then the whole seats of it).
+        inner_y = y + 2 * _LINE + 6
         for concept in _tree(uses):
             _draw_concept(d, concept, x1 + _CONCEPT_PAD, x2 - _CONCEPT_PAD, inner_y)
             inner_y += _concept_height(concept, x2 - x1 - 2 * _CONCEPT_PAD) + _CONCEPT_GAP
+        line_y = inner_y - 6
+        for call in step.get("calls") or ():
+            line_y += _LINE
+            text(d, x1 + 6, line_y, _fit(_call(call), x2 - x1 - 12), ink="plain", anchor="start")
         return
     is_loop = kind.startswith(_LOOPS)
     label = str(step.get("title", kind)) if kind == "StepSequence" else kind
