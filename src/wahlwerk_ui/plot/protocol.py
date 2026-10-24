@@ -28,7 +28,8 @@ or ``None``): what a run of the protocol had decided after that step, as a small
 circle at the step's height. An aside is plain data too: ``seats`` (triples of party,
 seats filled, seats still open for it: a party's colour solid, or as an edge only),
 ``free`` (seats not yet anyone's, hollow), ``standing`` (pairs of party and members
-without a seat yet, drawn below the floor) and ``caption`` (a line under it). A step
+without a seat yet, drawn below the floor) and ``caption`` (a line under it). The number
+of seats stands in the middle of the half circle. A step
 shorter than its chamber gets the room: the steps move apart, the chamber stays level
 with its step. A page that sets each step and its chamber side by side draws them apart:
 each top-level step with ``margin=margin_of(steps)``, so the parts line up, and its
@@ -208,6 +209,8 @@ def _draw_aside(d: Drawing, aside: Aside, x: float, y: float, width: float) -> N
         dot(d, cx + sx * scale, floor - sy * scale, seat_r * scale * 0.85, cls=cls)
     base = floor + seat_r * scale + 2
     d.line("structure", x + 8, base, x + width - 8, base)
+    if kinds:  # the size of the chamber, in the middle of its half circle
+        text(d, cx, floor - 4, str(len(kinds)), ink="strong", is_name=True)
     caption = str(aside.get("caption", ""))
     if caption:
         text(d, cx, base + _LINE, _fit(caption, width - 8), ink="plain")

@@ -187,3 +187,4 @@ def test_parts_of_a_protocol_line_up_and_a_chamber_stands_alone():
     svg = aside_svg(ASIDES[1], width=200, labels=["cdu", "spd"])
     assert svg.count("<circle") == 9 and 'width="200"' in svg
     assert ".party-cdu" in svg and ".party-spd-open" in svg
+    assert ">9</text>" in svg  # the number of seats, in the middle
