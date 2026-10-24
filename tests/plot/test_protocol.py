@@ -57,3 +57,16 @@ def test_deterministic_and_scoped():
 def test_too_narrow_is_refused():
     with pytest.raises(ValueError, match="too narrow"):
         protocol_drawing(STEPS, width=200)
+
+
+def test_the_chain_down_to_the_formula_is_drawn():
+    step = {
+        "kind": "ElectPerUnit",
+        "parameters": [["method", "Plurality"]],
+        "writes": ["districts"],
+        "stage": 1,
+        "uses": [{"field": "method", "kind": "Plurality", "formula": "wahlwerk.calc.plurality.plurality"}],
+    }
+    plain = protocol_svg([{**step, "uses": []}])
+    drawn = protocol_svg([step])
+    assert "calc.plurality.plurality" in drawn and "calc.plurality" not in plain

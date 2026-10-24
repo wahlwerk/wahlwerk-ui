@@ -6,11 +6,14 @@ Takes plain data, one mapping per step, as the engine's
 - ``kind`` (``"ApportionSeats"``), ``title`` (what it does, a few words),
 - ``citation`` (``"Sec. 35 (3)"`` or ``None``), ``parameters`` (pairs of field and value),
 - ``writes`` (the facts it establishes), ``stage`` (0 for a step reading only the input),
-- ``children`` (the steps it holds: a sequence's steps, a loop's block).
+- ``children`` (the steps it holds: a sequence's steps, a loop's block),
+- ``uses`` (optional: the models it computes with, each ``field``, ``kind`` and the
+  ``formula`` it calls, outermost first).
 
 A step is a box of paper, its kind in the name ink and its settings faint under it;
 the paragraph it follows sits at its right edge, the facts it writes in the margin, its
-stage in the gutter. A step that holds others is a dashed frame (construction, like a
+stage in the gutter; under its settings, the chain down to its formula, one line per
+model it uses. A step that holds others is a dashed frame (construction, like a
 unit: a grouping, not a thing) around its children; a loop's frame says that it repeats.
 Arrows run from each step to the next. Nothing here knows about elections.
 """
@@ -85,7 +88,7 @@ def _height(step: Step) -> float:
     """The height of a step: two lines in a box, or a frame around its children."""
     children = list(step.get("children") or ())
     if not children:
-        return 2 * _LINE + 6
+        return (2 + len(step.get("uses") or ())) * _LINE + 6
     inner = sum(_height(c) for c in children) + _GAP * (len(children) - 1)
     header = 2 * _LINE if step.get("parameters") or step.get("citation") else _LINE
     return header + 4 + inner + 2 * _FRAME_PAD
@@ -106,6 +109,13 @@ def _draw(d: Drawing, step: Step, x1: float, x2: float, y: float, edge: float, *
             text(d, x2 - 6, y + _LINE, citation, ink="faint", anchor="end")
         settings = ", ".join(f"{k}={v}" for k, v in step.get("parameters") or ())
         text(d, x1 + 6, y + 2 * _LINE, _fit(settings or str(step.get("title", "")), x2 - x1 - 12), ink="faint", anchor="start")
+        # The chain down to the formula: each model the step computes with, indented by
+        # how deep it sits, and the function in wahlwerk.calc it calls.
+        for number, use in enumerate(step.get("uses") or (), start=3):
+            depth = str(use.get("field", "")).count(".")
+            formula = str(use.get("formula", "")).removeprefix("wahlwerk.")
+            line = f"{'  ' * depth}↳ {use.get('kind', '')}: {formula}"
+            text(d, x1 + 6, y + number * _LINE, _fit(line, x2 - x1 - 12), ink="plain", anchor="start")
         return
     is_loop = kind.startswith(_LOOPS)
     label = str(step.get("title", kind)) if kind == "StepSequence" else kind
