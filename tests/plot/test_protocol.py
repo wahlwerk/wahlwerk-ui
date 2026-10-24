@@ -117,5 +117,15 @@ def test_a_step_shows_its_arguments_under_its_title():
         "children": [],
     }
     svg = protocol_svg([step])
-    assert ">votes=erststimme by wahlkreis × option, method=Plurality<" in svg
     assert ">SingleMandatePerUnit<" in svg  # the title stays as it is
+    # What it is handed, faint; what a counterfactual can swap, strong, on its own line.
+    assert "faint" in _label(svg, "votes=erststimme by wahlkreis × option")
+    assert "strong" in _label(svg, "method=Plurality")
+
+
+def _label(svg, content):
+    """The class of the text element holding ``content``."""
+    import re
+
+    (cls,) = re.findall(r'<text class="([^"]+)"[^>]*>' + re.escape(content) + "<", svg)
+    return cls

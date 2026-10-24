@@ -146,7 +146,7 @@ def _tree(uses: list[Step]) -> list[Concept]:
 
 def _concept_height(concept: Concept, width: float) -> float:
     use, inner = concept
-    lines = 1 + len(_wrap(_needs(use), width - 12)) + len(use.get("calls") or ())
+    lines = 1 + len(_needs_lines(use, width)) + len(use.get("calls") or ())
     return lines * _LINE + 8 + sum(_concept_height(c, width - 2 * _CONCEPT_PAD) + _CONCEPT_GAP for c in inner)
 
 
@@ -158,9 +158,9 @@ def _draw_concept(d: Drawing, concept: Concept, x1: float, x2: float, y: float) 
     box(d, x1, y, x2 - x1, _concept_height(concept, x2 - x1))
     text(d, x1 + 6, y + _LINE, str(use.get("kind", "")), ink="strong", is_name=True, anchor="start")
     line_y = y + _LINE
-    for line in _wrap(_needs(use), x2 - x1 - 12):
+    for line, ink in _needs_lines(use, x2 - x1):
         line_y += _LINE
-        text(d, x1 + 6, line_y, _fit(line, x2 - x1 - 12), ink="faint", anchor="start")
+        text(d, x1 + 6, line_y, line, ink=ink, is_name=ink == SETTING, anchor="start")
     for call in use.get("calls") or ():
         line_y += _LINE
         text(d, x1 + 6, line_y, _fit(_call(call), x2 - x1 - 12), ink="plain", anchor="start")
@@ -170,21 +170,46 @@ def _draw_concept(d: Drawing, concept: Concept, x1: float, x2: float, y: float) 
         inner_y += _concept_height(child, x2 - x1 - 2 * _CONCEPT_PAD) + _CONCEPT_GAP
 
 
-def _needs(use: Step) -> list[str]:
-    """``votes=erststimme per nominee``, ``seats=1``: what a concept is given and set to."""
-    return [f"{k}={v}" for k, v in (*(use.get("arguments") or ()), *(use.get("parameters") or ()))]
+Line = tuple[str, str]
+"""A line of text and its ink."""
+
+WIRING = "faint"
+"""The ink of what a step or concept is handed: the facts it takes, fixed by the protocol."""
+
+SETTING = "strong"
+"""The ink of what can be swapped: a setting a law sets and a counterfactual changes
+(``seats=83``, ``share=1/20``, ``factor=2``), drawn bold like the names of steps and
+concepts, which can be swapped whole; what a step is handed stays faint."""
 
 
-def _argument_lines(step: Step, width: float) -> list[str]:
-    """A step's arguments as it is called, ``votes=erststimme by wahlkreis × option``, then
-    its settings not drawn as a concept, wrapped to its box; its title when it has
-    neither."""
+def _lines(wiring: list[str], settings: list[str], width: float) -> list[Line]:
+    """What is handed, faint, then what can be swapped, strong, each wrapped to ``width``."""
+    room = width - 12
+    return [(_fit(line, room), WIRING) for line in _wrap(wiring, room)] + [
+        (_fit(line, room), SETTING) for line in _wrap(settings, room)
+    ]
+
+
+def _needs_lines(use: Step, width: float) -> list[Line]:
+    """What a concept is given (``votes=one row of votes``, ``seats=1``) and its own
+    settings (``share=1/20``)."""
+    return _lines(
+        [f"{k}={v}" for k, v in use.get("arguments") or ()],
+        [f"{k}={v}" for k, v in use.get("parameters") or ()],
+        width,
+    )
+
+
+def _argument_lines(step: Step, width: float) -> list[Line]:
+    """A step as it is called: its arguments, the facts it takes
+    (``votes=erststimme by wahlkreis × option``), then its settings not drawn as a
+    concept; its title when it has neither."""
     drawn = {str(u.get("field", "")).split(".")[0] for u in step.get("uses") or ()}
-    items = [f"{k}={v}" for k, v in step.get("inputs") or ()]
-    items += [f"{k}={v}" for k, v in step.get("parameters") or () if k not in drawn]
-    if not items:
-        return [_fit(str(step.get("title", "")), width - 12)]
-    return [_fit(line, width - 12) for line in _wrap(items, width - 12)]
+    wiring = [f"{k}={v}" for k, v in step.get("inputs") or ()]
+    settings = [f"{k}={v}" for k, v in step.get("parameters") or () if k not in drawn]
+    if not wiring and not settings:
+        return [(_fit(str(step.get("title", "")), width - 12), WIRING)]
+    return _lines(wiring, settings, width)
 
 
 def _given(step: Step) -> list[str]:
@@ -239,8 +264,8 @@ def _draw(
         uses = list(step.get("uses") or ())
         # Its arguments, the facts it takes, and its settings: the step as a call.
         lines = _argument_lines(step, x2 - x1)
-        for number, line in enumerate(lines, start=2):
-            text(d, x1 + 6, y + number * _LINE, line, ink="faint", anchor="start")
+        for number, (line, ink) in enumerate(lines, start=2):
+            text(d, x1 + 6, y + number * _LINE, line, ink=ink, is_name=ink == SETTING, anchor="start")
         # The concepts it computes with first, then the functions it calls itself with
         # what they give (the caucus size: the quota, then the whole seats of it).
         inner_y = y + (1 + len(lines)) * _LINE + 6
@@ -272,7 +297,7 @@ def _draw(
     settings = _frame_settings(step)
     if settings:
         header += _LINE
-        text(d, x1 + 6, y + header, _fit(settings, x2 - x1 - 12), ink="faint", anchor="start")
+        text(d, x1 + 6, y + header, _fit(settings, x2 - x1 - 12), ink=SETTING, is_name=True, anchor="start")
     # A loop's condition: when it runs another round, the check before each.
     for line in _condition_lines(step, x2 - x1):
         header += _LINE
