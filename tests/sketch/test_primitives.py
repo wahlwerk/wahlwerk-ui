@@ -39,7 +39,7 @@ def test_ballot_paper_crosses_only_the_marked_options():
 def test_table_marks_absent_cells():
     d = _d()
     width, height = sk.table(
-        d, 0, 0, ("kind", "count"), (("eligible_keys", "590"), ("", "4")), numeric=(False, True)
+        d, 0, 0, ("kind", "count"), (("eligible", "590"), ("", "4")), numeric=(False, True)
     )
     assert width > 0 and height > 0
     assert ">·</text>" in d.markup(style=False)

@@ -36,7 +36,7 @@ def test_every_step_is_drawn_once_with_its_citation():
     for name in ("SumVotes", "RaiseByOverhang (repeats)", "AllocateSeats", "ApportionSeats", "FillVacantSeatsFromLists"):
         assert svg.count(name) == 1, name
     assert "Sec. 35 (8)" in svg and "factor=2" in svg
-    assert "→ total:land" in svg
+    assert ">→<" in svg and ">total:land<" in svg
 
 
 def test_frames_and_steps_are_in_the_step_colour():
@@ -91,3 +91,17 @@ def test_a_loop_shows_its_condition():
     looped = [dict(STEPS[1], condition="while overhang > 0")]
     assert "? while overhang &gt; 0" in protocol_svg(looped)
     assert "while overhang" not in protocol_svg(STEPS[1:2])
+
+
+def test_outcomes_stand_in_one_column_outside_every_frame():
+    import re
+
+    svg = protocol_svg(STEPS, width=640)
+    xs = {
+        float(x)
+        for x, label in re.findall(r'<text[^>]* x="([\d.]+)"[^>]*>([^<]+)</text>', svg)
+        if label in ("total:land", "entitlement", "list_seats", "overhang", "chamber")
+    }
+    assert len(xs) == 1  # nested or not, every fact starts at the same x
+    (x,) = xs
+    assert x > 640 - min(200, 640 // 3) - 8  # in the margin, right of the boxes

@@ -63,7 +63,7 @@ def protocol_drawing(
     d = Drawing(width, total, scope=scope or scope_id("protocol", repr(steps), width), label=title or "protocol")
     y: float = _PAD
     for index, (step, height) in enumerate(zip(steps, heights)):
-        _draw(d, step, left, right, y, width - _PAD, show_stage=True)
+        _draw(d, step, left, right, y, (right, width - _PAD), show_stage=True)
         if index + 1 < len(steps):
             mid = (left + right) / 2
             arrow(d, mid, y + height + 1, mid, y + height + _GAP - 1)
@@ -189,13 +189,15 @@ def _call(call: Step) -> str:
     return str(call.get("formula", "")).removeprefix("wahlwerk.calc.")
 
 
-def _draw(d: Drawing, step: Step, x1: float, x2: float, y: float, edge: float, *, show_stage: bool) -> None:
+def _draw(
+    d: Drawing, step: Step, x1: float, x2: float, y: float, column: tuple[float, float], *, show_stage: bool
+) -> None:
     height = _height(step, x2 - x1)
     kind = str(step.get("kind", ""))
     citation = step.get("citation") or ""
     if show_stage and "stage" in step:
         text(d, _PAD + _GUTTER / 2, y + _LINE, str(step["stage"]), ink="faint")
-    _writes(d, step, x2, y, edge)
+    _writes(d, step, y, height, column)
     children = list(step.get("children") or ())
     if not children:
         # A step is a rule of the law, in the step colour; the core concepts it computes
@@ -250,7 +252,7 @@ def _draw(d: Drawing, step: Step, x1: float, x2: float, y: float, edge: float, *
         inner_y += _concept_height(concept, x2 - x1 - 2 * _FRAME_PAD) + _CONCEPT_GAP
     for index, child in enumerate(children):
         child_height = _height(child, x2 - x1 - 2 * _FRAME_PAD)
-        _draw(d, child, x1 + _FRAME_PAD, x2 - _FRAME_PAD, inner_y, edge, show_stage=False)
+        _draw(d, child, x1 + _FRAME_PAD, x2 - _FRAME_PAD, inner_y, column, show_stage=False)
         if index + 1 < len(children):
             mid = (x1 + x2) / 2
             arrow(d, mid, inner_y + child_height + 1, mid, inner_y + child_height + _GAP - 1)
@@ -262,24 +264,25 @@ def _frame(d: Drawing, x: float, y: float, w: float, h: float) -> None:
     d.add("structure", "rect", {"class": "step-frame", "x": num(x), "y": num(y), "width": num(w), "height": num(h), "rx": "2"})
 
 
-def _writes(d: Drawing, step: Step, x: float, y: float, edge: float) -> None:
-    """The facts a leaf step writes, faint in the margin beside its box."""
+def _writes(d: Drawing, step: Step, y: float, height: float, column: tuple[float, float]) -> None:
+    """The facts a leaf step writes, one per line, in the margin column beside its box:
+    every step's facts start at the same x, outside every frame, however deep the step
+    is nested. As many lines as the box is tall; the last says how many more there are."""
     if step.get("children"):
         return
-    facts = list(step.get("writes") or ())
+    facts = [str(fact) for fact in step.get("writes") or ()]
     if not facts:
         return
-    room = edge - x - 10
-    lines: list[str] = []
-    for fact in facts:
-        candidate = f"{lines[-1]}, {fact}" if lines else f"→ {fact}"
-        if lines and _width(candidate) <= room:
-            lines[-1] = candidate
-        else:
-            lines.append(candidate if not lines else f"  {fact}")
-    for number, line in enumerate(lines[:2], start=1):
-        last = number == 2 and len(lines) > 2
-        text(d, x + 10, y + number * _LINE, _fit(line + (", …" if last else ""), room), ink="plain", anchor="start")
+    start, end = column
+    x, room = start + 10, end - start - 10
+    fits = max(1, int((height - 4) // _LINE))
+    if len(facts) > fits:
+        facts = [*facts[: fits - 1], f"+{len(facts) - fits + 1} more"]
+    # The arrow once, the facts under each other after it (SVG collapses leading spaces).
+    text(d, x, y + _LINE, "→", ink="plain", anchor="start")
+    indent = _width("→ ")
+    for number, fact in enumerate(facts, start=1):
+        text(d, x + indent, y + number * _LINE, _fit(fact, room - indent), ink="plain", anchor="start")
 
 
 def _width(label: str) -> float:
