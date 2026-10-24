@@ -188,11 +188,18 @@ def _words(step: Step) -> set[str]:
     return {v for v in values if _TOKEN.fullmatch(v)}
 
 
+def _plural(word: str) -> str:
+    """``party`` to ``parties``, ``option`` to ``options``: a setting shows in the plural
+    in a fact's name (``to=party`` in ``eligible parties of zweitstimme``)."""
+    return f"{word[:-1]}ies" if word.endswith("y") else f"{word}s"
+
+
 def _pills(d: Drawing, x: float, y: float, line: str, words: set[str]) -> None:
     """A pill behind each word of ``line`` (drawn from ``x``, baseline ``y``) that is
     one of ``words``: the setting, and where it shows again, marked alike."""
+    marked = words | {_plural(word) for word in words}
     for match in _TOKEN.finditer(line):
-        if match.group() in words:
+        if match.group() in marked:
             d.add(
                 "dimension",
                 "rect",

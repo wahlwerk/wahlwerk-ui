@@ -140,3 +140,12 @@ def test_a_long_fact_wraps_in_the_margin():
     svg = protocol_svg([step], width=480)
     assert "…" not in svg  # broken at its words, not cut
     assert ">erststimme by<" in svg or ">erststimme by wahlkreis<" in svg
+
+
+def test_a_setting_is_marked_in_the_plural_too():
+    step = {"kind": "ApplyThresholdTo", "inputs": [["votes", "zweitstimme by land × party"]],
+            "named": [["section", "zweitstimme"], ["level", "land"], ["to", "party"]],
+            "writes": ["eligible parties of zweitstimme"], "stage": 0, "children": []}
+    svg = protocol_svg([step], width=900)
+    # zweitstimme, land, party in the argument; parties and zweitstimme in the result
+    assert svg.count('class="pill"') == 5
