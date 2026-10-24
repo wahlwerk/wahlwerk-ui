@@ -132,6 +132,12 @@ read no CSS variables.
   wahlwerk-site's paper (`--bg`), each with a dark value for the dark theme.
 - **The subject of a sketch** that is not a party is `SUBJECT_FILL` / `SUBJECT_LINE`, a
   quiet blue, the colour of the liquid in the PhD sketches: light fill, line edge.
+- **Steps of a law** are `STEP_FILL` / `STEP_LINE`, an ochre (wahlwerk-site's accent),
+  in protocol drawings only: a step, a rule of the law, is a box in the step colour, a
+  sequence or loop of steps its dashed frame. A core concept a step computes with (a
+  method such as plurality, a threshold) is plain paper inside it, with the functions of
+  `wahlwerk.calc` it calls. Two styles, so a rule and the concept under it never look
+  alike.
 - **Party colours** have their own module and page, since that list grows with every
   election: see [Party colours](#party-colours) below.
 - A colour that is not in `style.py` or `parties.py` does not exist.

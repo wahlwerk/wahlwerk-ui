@@ -7,14 +7,18 @@ Takes plain data, one mapping per step, as the engine's
 - ``citation`` (``"Sec. 35 (3)"`` or ``None``), ``parameters`` (pairs of field and value),
 - ``writes`` (the facts it establishes), ``stage`` (0 for a step reading only the input),
 - ``children`` (the steps it holds: a sequence's steps, a loop's block),
-- ``uses`` (optional: the models it computes with, each ``field``, ``kind`` and the
-  ``formula`` it calls, outermost first).
+- ``uses`` (optional: the core concepts it computes with, outermost first, each
+  ``field``, ``kind``, ``parameters`` and ``calls``; a field ``method.method`` sits in
+  ``method``) and ``calls`` (optional: functions it calls itself); a call is
+  ``formula`` (its full name) and ``call`` (``plurality(votes, seats=1)``).
 
 A step is a box of paper, its kind in the name ink and its settings faint under it;
 the paragraph it follows sits at its right edge, the facts it writes in the margin, its
-stage in the gutter; under its settings, the chain down to its formula, one line per
-model it uses. A step that holds others is a dashed frame (construction, like a
-unit: a grouping, not a thing) around its children; a loop's frame says that it repeats.
+stage in the gutter. Two styles keep two things apart: a step, a rule of the law, is
+in the step colour; a core concept it computes with (a method such as plurality, a
+threshold) is a paper block inside it, with the functions of ``wahlwerk.calc`` it
+calls, and a concept that holds another holds its block the same way. A step that holds others is a dashed frame in the step colour (a grouping, not
+a thing) around its children; a loop's frame says that it repeats.
 Arrows run from each step to the next. Nothing here knows about elections.
 """
 
@@ -25,9 +29,9 @@ from html import escape
 from typing import Any
 
 from wahlwerk_ui.html import Html
-from wahlwerk_ui.sketch.primitives import arrow, box, text, unit
+from wahlwerk_ui.sketch.primitives import arrow, box, text
 from wahlwerk_ui.style import CHAR_WIDTH_PX, FONT_SIZE_PX, css
-from wahlwerk_ui.svg import Drawing, Svg, scope_id
+from wahlwerk_ui.svg import Drawing, Svg, num, scope_id
 
 __all__ = ["protocol_drawing", "protocol_html", "protocol_svg"]
 
@@ -39,6 +43,8 @@ _GUTTER = 22  # the stage column
 _LINE = FONT_SIZE_PX + 4
 _GAP = 14  # between boxes, room for an arrow
 _FRAME_PAD = 8
+_CONCEPT_PAD = 8  # a concept block inside its step, and inside another concept
+_CONCEPT_GAP = 6
 _LOOPS = ("Repeat", "Raise")  # a step whose name starts so repeats what it holds
 
 
@@ -85,13 +91,68 @@ def protocol_html(steps: Sequence[Step], *, width: int = 640, title: str = "") -
 # Layout
 # ===========================================================
 def _height(step: Step) -> float:
-    """The height of a step: two lines in a box, or a frame around its children."""
+    """The height of a step: a box with its lines and concepts, or a frame around its
+    children."""
     children = list(step.get("children") or ())
+    concepts = sum(_concept_height(c) + _CONCEPT_GAP for c in _tree(list(step.get("uses") or ())))
     if not children:
-        return (2 + len(step.get("uses") or ())) * _LINE + 6
+        return (2 + len(step.get("calls") or ())) * _LINE + 6 + concepts
     inner = sum(_height(c) for c in children) + _GAP * (len(children) - 1)
     header = 2 * _LINE if step.get("parameters") or step.get("citation") else _LINE
-    return header + 4 + inner + 2 * _FRAME_PAD
+    return header + 4 + concepts + inner + 2 * _FRAME_PAD
+
+
+Concept = tuple[Step, list["Concept"]]
+"""A core concept a step uses and the concepts it holds in turn."""
+
+
+def _tree(uses: list[Step]) -> list[Concept]:
+    """The concepts in ``uses`` (outermost first, nested ones named ``method.method``) as
+    a tree: each under the longest other field its own field starts with."""
+    fields = [str(u.get("field", "")) for u in uses]
+
+    def parent(field: str) -> str | None:
+        above = [f for f in fields if field.startswith(f + ".")]
+        return max(above, key=len) if above else None
+
+    def children(of: str | None) -> list[Concept]:
+        return [(u, children(f)) for u, f in zip(uses, fields) if parent(f) == of]
+
+    return children(None)
+
+
+def _concept_height(concept: Concept) -> float:
+    use, inner = concept
+    lines = 1 + len(use.get("calls") or ())
+    return lines * _LINE + 8 + sum(_concept_height(c) + _CONCEPT_GAP for c in inner)
+
+
+def _draw_concept(d: Drawing, concept: Concept, x1: float, x2: float, y: float) -> None:
+    """A core concept as a block inside its step: paper, its name and settings, the
+    functions it calls, and the concepts it holds, nested the same way."""
+    use, inner = concept
+    box(d, x1, y, x2 - x1, _concept_height(concept))
+    name = str(use.get("kind", ""))
+    text(d, x1 + 6, y + _LINE, name, ink="strong", is_name=True, anchor="start")
+    settings = ", ".join(f"{k}={v}" for k, v in use.get("parameters") or ())
+    if settings:
+        room = x2 - x1 - 18 - _width(name)
+        text(d, x2 - 6, y + _LINE, _fit(settings, room), ink="faint", anchor="end")
+    line_y = y + _LINE
+    for call in use.get("calls") or ():
+        line_y += _LINE
+        text(d, x1 + 6, line_y, _fit(_call(call), x2 - x1 - 12), ink="plain", anchor="start")
+    inner_y = line_y + 6
+    for child in inner:
+        _draw_concept(d, child, x1 + _CONCEPT_PAD, x2 - _CONCEPT_PAD, inner_y)
+        inner_y += _concept_height(child) + _CONCEPT_GAP
+
+
+def _call(call: Step) -> str:
+    """``remainder.largest_remainder(votes, seats, quota, first=None)``: the module of
+    ``wahlwerk.calc`` and the call as written."""
+    module = str(call.get("formula", "")).removeprefix("wahlwerk.calc.").rsplit(".", 1)[0]
+    return f"{module}.{call.get('call', '')}"
 
 
 def _draw(d: Drawing, step: Step, x1: float, x2: float, y: float, edge: float, *, show_stage: bool) -> None:
@@ -103,35 +164,46 @@ def _draw(d: Drawing, step: Step, x1: float, x2: float, y: float, edge: float, *
     _writes(d, step, x2, y, edge)
     children = list(step.get("children") or ())
     if not children:
-        box(d, x1, y, x2 - x1, height)
+        # A step is a rule of the law, in the step colour; the core concepts it computes
+        # with sit inside it as paper blocks, down to the functions they call.
+        box(d, x1, y, x2 - x1, height, cls="step")
         text(d, x1 + 6, y + _LINE, kind, ink="strong", is_name=True, anchor="start")
         if citation:
             text(d, x2 - 6, y + _LINE, citation, ink="faint", anchor="end")
-        settings = ", ".join(f"{k}={v}" for k, v in step.get("parameters") or ())
+        uses = list(step.get("uses") or ())
+        drawn = {str(u.get("field", "")).split(".")[0] for u in uses}
+        settings = ", ".join(f"{k}={v}" for k, v in step.get("parameters") or () if k not in drawn)
         text(d, x1 + 6, y + 2 * _LINE, _fit(settings or str(step.get("title", "")), x2 - x1 - 12), ink="faint", anchor="start")
-        # The chain down to the formula: each model the step computes with, indented by
-        # how deep it sits, and the function in wahlwerk.calc it calls.
-        for number, use in enumerate(step.get("uses") or (), start=3):
-            depth = str(use.get("field", "")).count(".")
-            formula = str(use.get("formula", "")).removeprefix("wahlwerk.")
-            line = f"{'  ' * depth}↳ {use.get('kind', '')}: {formula}"
-            text(d, x1 + 6, y + number * _LINE, _fit(line, x2 - x1 - 12), ink="plain", anchor="start")
+        line_y = y + 2 * _LINE
+        for call in step.get("calls") or ():
+            line_y += _LINE
+            text(d, x1 + 6, line_y, _fit(_call(call), x2 - x1 - 12), ink="plain", anchor="start")
+        inner_y = line_y + 6
+        for concept in _tree(uses):
+            _draw_concept(d, concept, x1 + _CONCEPT_PAD, x2 - _CONCEPT_PAD, inner_y)
+            inner_y += _concept_height(concept) + _CONCEPT_GAP
         return
     is_loop = kind.startswith(_LOOPS)
     label = str(step.get("title", kind)) if kind == "StepSequence" else kind
     if is_loop:
         label += " (repeats)"
-    unit(d, x1, y, x2 - x1, height)
+    _frame(d, x1, y, x2 - x1, height)
     # A frame's title is often long (a sequence's name), so its citation goes under it,
     # with the settings, rather than beside it.
     text(d, x1 + 6, y + _LINE, _fit(label, x2 - x1 - 12), ink="plain", is_name=True, anchor="start")
     header = _LINE
-    settings = ", ".join(f"{k}={v}" for k, v in step.get("parameters") or ())
+    uses = list(step.get("uses") or ())
+    drawn = {str(u.get("field", "")).split(".")[0] for u in uses}
+    settings = ", ".join(f"{k}={v}" for k, v in step.get("parameters") or () if k not in drawn)
     second = " · ".join(part for part in (citation, settings) if part)
     if second:
         header += _LINE
         text(d, x1 + 6, y + header, _fit(second, x2 - x1 - 12), ink="faint", anchor="start")
     inner_y = y + header + 4 + _FRAME_PAD
+    # A loop's own concepts (the Fraktion size it compares with) before what it repeats.
+    for concept in _tree(uses):
+        _draw_concept(d, concept, x1 + _FRAME_PAD, x2 - _FRAME_PAD, inner_y)
+        inner_y += _concept_height(concept) + _CONCEPT_GAP
     for index, child in enumerate(children):
         child_height = _height(child)
         _draw(d, child, x1 + _FRAME_PAD, x2 - _FRAME_PAD, inner_y, edge, show_stage=False)
@@ -139,6 +211,11 @@ def _draw(d: Drawing, step: Step, x1: float, x2: float, y: float, edge: float, *
             mid = (x1 + x2) / 2
             arrow(d, mid, inner_y + child_height + 1, mid, inner_y + child_height + _GAP - 1)
         inner_y += child_height + _GAP
+
+
+def _frame(d: Drawing, x: float, y: float, w: float, h: float) -> None:
+    """The dashed frame of steps that act as one, in the step colour."""
+    d.add("structure", "rect", {"class": "step-frame", "x": num(x), "y": num(y), "width": num(w), "height": num(h), "rx": "2"})
 
 
 def _writes(d: Drawing, step: Step, x: float, y: float, edge: float) -> None:

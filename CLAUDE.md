@@ -34,7 +34,7 @@ told otherwise:
 
 | Module | Contents |
 |---|---|
-| `style.py` | The drawing style as data: `Tone` (light, dark, usage), the ink ladder `CONSTRUCTION`, `DIMENSION`, `STRUCTURE`, `CONTENT`, the label inks `LABEL_FAINT`/`PLAIN`/`STRONG`, `SURFACE`, `LINE`, `INKS`; stroke band and widths, `DASH`, `EDGE_MIN_DIAMETER_PX`; `FONT_FAMILY`, `FONT_SIZE_PX`, `LABEL_WEIGHT`; `PARTY_COLORS`, `UNRECORDED`, `FALLBACK_COLORS`; `tone`, `slug`; `css(scope, parties, adaptive=True)`, the one style block |
+| `style.py` | The drawing style as data: `Tone` (light, dark, usage), the ink ladder `CONSTRUCTION`, `DIMENSION`, `STRUCTURE`, `CONTENT`, the label inks `LABEL_FAINT`/`PLAIN`/`STRONG`, `STEP_FILL`/`STEP_LINE` (protocol steps), `SURFACE`, `LINE`, `INKS`; stroke band and widths, `DASH`, `EDGE_MIN_DIAMETER_PX`; `FONT_FAMILY`, `FONT_SIZE_PX`, `LABEL_WEIGHT`; `PARTY_COLORS`, `UNRECORDED`, `FALLBACK_COLORS`; `tone`, `slug`; `css(scope, parties, adaptive=True)`, the one style block |
 | `parties.py` | `PARTY_COLORS`, `UNRECORDED`, `FALLBACK_COLORS`: kept apart because the list grows with every election; re-exported by `style.py`; `docs/party-colours.md` is generated from it |
 | `sketch/plate.py` | `Plate` (a row of numbered `Panel`s: title, art, caption of a name and at most two lines; `svg`, `save`, `to_dict` with one SVG per panel for the web), `Panel.slot` |
 | `sketch/primitives.py` | the pieces of a sketch, each on its rung: `unit`, `axis`, `guide_circle`, `dimension`, `box`, `rule`, `link`, `arrow`, `leader`, `dot`, `crowd`, `cross`, `mark`, `text`, `table`; compositions `ballot_paper`, `chamber` (`CHOICES`: yes, no, abstain, absent) |
@@ -45,7 +45,7 @@ told otherwise:
 | `plot/chamber/seat.py` | `seat_layout` (hemicycle geometry), `hemicycle_drawing`, `hemicycle_svg` (every seat drawn) |
 | `plot/chamber/pie.py` | `half_pie_drawing`, `half_pie_svg` (one wedge per group; `hole` for a half ring) |
 | `plot/chamber/card.py` | `chamber_html(groups, kind="seats" \| "pie", majority=False)`: title, plot and legend under one style block |
-| `plot/protocol.py` | `protocol_drawing`, `protocol_svg`, `protocol_html(steps, width=640, title="")`: a protocol as a technical drawing from plain step data (the engine's `flow.protocol_data`): steps as paper boxes in order with their citation and settings, a sequence or loop as a dashed frame around the steps it holds, the stage in the gutter, the facts written in the margin, and under a step the chain down to its formula (`uses`: each model it computes with and the `wahlwerk.calc` function it calls) |
+| `plot/protocol.py` | `protocol_drawing`, `protocol_svg`, `protocol_html(steps, width=640, title="")`: a protocol as a technical drawing from plain step data (the engine's `flow.protocol_data`): steps as boxes in order with their citation and settings, a sequence or loop as a dashed frame around the steps it holds, the stage in the gutter, the facts written in the margin; two styles: a step in the step colour (`STEP_FILL`/`STEP_LINE`, `.step`, a frame `.step-frame`), and inside it each core concept it computes with (`uses`: a method, a threshold) as a paper block nested like steps, with the `wahlwerk.calc` calls it makes (and the step's own `calls`) |
 
 Plots are pure-Python SVG, kept small (default 240 px wide) for inline notebook display.
 Geometry uses floats (it is drawing, not arithmetic on votes), but the seats-per-ring

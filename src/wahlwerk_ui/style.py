@@ -66,6 +66,8 @@ __all__ = [
     "LABEL_WEIGHT",
     "LINE",
     "PARTY_COLORS",
+    "STEP_FILL",
+    "STEP_LINE",
     "STROKE_FRAME_PX",
     "STROKE_HAIRLINE_PX",
     "STROKE_MAX_PX",
@@ -107,6 +109,9 @@ LABEL_STRONG = Tone("#1d1f24", "#e9e7e1", "A value read off; with LABEL_WEIGHT, 
 SUBJECT_FILL = Tone("#cfe2f2", "#1f3447", "The subject of a sketch as an area: a mark, a vote")
 SUBJECT_LINE = Tone("#1d6fa8", "#72b2e2", "Its edge, and the subject drawn as a line or a cross")
 
+STEP_FILL = Tone("#f6efdc", "#3a3222", "A rule of a law as an area: a step box in a protocol drawing")
+STEP_LINE = Tone("#b8860b", "#e0b54a", "Its edge, and the dashed frame of a sequence or loop of steps")
+
 SURFACE = Tone("#ffffff", "#1d1f24", "Card background, paper, a no in a chamber vote")
 LINE = Tone("#dcd9d0", "#34363d", "Card border")
 
@@ -120,6 +125,8 @@ INKS: Mapping[str, Tone] = {
     "strong": LABEL_STRONG,
     "subject-fill": SUBJECT_FILL,
     "subject-line": SUBJECT_LINE,
+    "step-fill": STEP_FILL,
+    "step-line": STEP_LINE,
     "surface": SURFACE,
     "line": LINE,
 }
@@ -195,6 +202,11 @@ _RULES: tuple[tuple[str, str], ...] = (
     (".subject-line", f"fill:none;stroke:{{subject-line}};stroke-width:{STROKE_SUBJECT_PX}"),
     (".subject-dot", "fill:{subject-line}"),
     (".paper", f"fill:{{surface}};stroke:{{structure}};stroke-width:{STROKE_FRAME_PX}"),
+    (".step", f"fill:{{step-fill}};stroke:{{step-line}};stroke-width:{STROKE_FRAME_PX}"),
+    (
+        ".step-frame",
+        f"fill:none;stroke:{{step-line}};stroke-width:{STROKE_FRAME_PX};stroke-dasharray:{DASH}",
+    ),
     (".arrow", f"fill:none;stroke:{{content}};stroke-width:{STROKE_FRAME_PX}"),
     (".arrowhead", "fill:{content}"),
     (".rule", f"fill:none;stroke:{{structure}};stroke-width:{STROKE_HAIRLINE_PX}"),

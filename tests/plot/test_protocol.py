@@ -40,10 +40,11 @@ def test_every_step_is_drawn_once_with_its_citation():
     assert "→ total:land" in svg
 
 
-def test_frames_are_construction_and_steps_are_paper():
+def test_frames_and_steps_are_in_the_step_colour():
     markup = protocol_drawing(STEPS).markup()
-    assert markup.count('class="construction"') == 2  # the loop and the sequence
-    assert markup.count('class="paper"') == 4  # the leaf steps
+    assert markup.count('class="step-frame"') == 2  # the loop and the sequence
+    assert markup.count('class="step"') == 4  # the leaf steps
+    assert 'class="paper"' not in markup  # no concepts given, so no paper blocks
     assert markup.count('class="arrow-group"') == 3  # two between the top steps, one inside
 
 
@@ -60,13 +61,27 @@ def test_too_narrow_is_refused():
 
 
 def test_the_chain_down_to_the_formula_is_drawn():
+    call = {"formula": "wahlwerk.calc.plurality.plurality", "call": "plurality(votes, seats=1)"}
     step = {
         "kind": "ElectPerUnit",
-        "parameters": [["method", "Plurality"]],
+        "parameters": [["method", "Plurality"], ["level", "wahlkreis"]],
         "writes": ["unit_winners"],
         "stage": 1,
-        "uses": [{"field": "method", "kind": "Plurality", "formula": "wahlwerk.calc.plurality.plurality"}],
+        "uses": [{"field": "method", "kind": "Plurality", "parameters": [], "calls": [call]}],
     }
-    plain = protocol_svg([{**step, "uses": []}])
-    drawn = protocol_svg([step])
-    assert "calc.plurality.plurality" in drawn and "calc.plurality" not in plain
+    plain = str(protocol_svg([{**step, "uses": []}]))
+    drawn = str(protocol_svg([step]))
+    assert "plurality.plurality(votes, seats=1)" in drawn and "plurality(votes" not in plain
+    assert 'class="step"' in drawn  # the step in the step colour
+    assert drawn.count('class="paper"') == 1  # the concept, a paper block inside it
+    assert "method=Plurality" not in drawn  # drawn as a block, not repeated as a setting
+
+
+def test_concepts_nest_like_steps():
+    inner = {"field": "method.method", "kind": "HareNiemeyer", "parameters": [], "calls": [
+        {"formula": "wahlwerk.calc.remainder.largest_remainder", "call": "largest_remainder(votes, seats, quota)"}]}
+    outer = {"field": "method", "kind": "MajorityFirst", "parameters": [], "calls": [
+        {"formula": "wahlwerk.calc.majority.majority_first", "call": "majority_first(votes, seats, quota)"}]}
+    step = {"kind": "ApportionSeats", "parameters": [], "writes": [], "stage": 0, "uses": [outer, inner]}
+    drawn = protocol_drawing([step])
+    assert str(drawn.svg()).count('class="paper"') == 2
