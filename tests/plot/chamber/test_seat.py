@@ -3,8 +3,8 @@ from itertools import pairwise
 
 import pytest
 
-from wahlwerk_ui.plot.chamber.common import PARTY_COLORS, UNRECORDED_COLOR
 from wahlwerk_ui.plot.chamber.seat import hemicycle_svg, seat_layout
+from wahlwerk_ui.style import PARTY_COLORS, UNRECORDED
 
 BUNDESTAG_2025 = [("linke", 64), ("gruene", 85), ("spd", 120), ("cdu-csu", 208), ("afd", 152)]
 
@@ -30,9 +30,7 @@ def test_layout_is_a_hemicycle_ordered_left_to_right(seats):
 @pytest.mark.parametrize("seats", [5, 120, 630])
 def test_seats_do_not_overlap(seats):
     centres, radius = seat_layout(seats)
-    closest = min(
-        math.dist(a, b) for i, a in enumerate(centres) for b in centres[i + 1 :]
-    )
+    closest = min(math.dist(a, b) for i, a in enumerate(centres) for b in centres[i + 1 :])
     assert closest >= 2 * radius
 
 
@@ -45,24 +43,46 @@ def test_layout_rejects_bad_counts():
         seat_layout(2.0)
 
 
-def test_svg_draws_one_circle_per_seat():
+def test_svg_draws_one_circle_per_seat_grouped_by_party():
     svg = hemicycle_svg(BUNDESTAG_2025)
     assert svg.startswith("<svg") and svg.endswith("</svg>")
     assert svg.count("<circle") == 629
-    assert f'fill="{PARTY_COLORS["spd"]}"' in svg
+    assert 'id="party-spd"' in svg and 'id="seat-spd-120"' in svg
     assert "<title>spd: 120</title>" in svg
+    assert PARTY_COLORS["spd"].light in svg and PARTY_COLORS["spd"].dark in svg
+
+
+def test_svg_is_a_technical_drawing():
+    svg = hemicycle_svg(BUNDESTAG_2025)
+    for layer in ("construction", "structure", "subject", "labels"):
+        assert f'id="layer-{layer}"' in svg
+    assert svg.index("layer-construction") < svg.index("layer-subject") < svg.index("layer-labels")
+    assert 'class="construction"' in svg and 'class="structure"' in svg
+    assert ">629</text>" in svg and ">seats</text>" in svg
+    assert 'id="layer-dimension"' not in svg  # nothing drawn there, so left out
+
+
+def test_majority_is_opt_in():
+    assert "majority" not in hemicycle_svg(BUNDESTAG_2025)
+    svg = hemicycle_svg(BUNDESTAG_2025, majority=True)
+    assert ">majority 315</text>" in svg and 'class="dimension"' in svg
+
+
+def test_large_seats_are_edged_small_ones_not():
+    assert 'class="edged"' in hemicycle_svg([("spd", 5)])
+    assert 'class="edged"' not in hemicycle_svg(BUNDESTAG_2025)
 
 
 def test_svg_draws_unrecorded_seats_grey():
     svg = hemicycle_svg([(None, 3)])
-    assert f'fill="{UNRECORDED_COLOR}"' in svg
+    assert UNRECORDED.light in svg and 'class="party-unrecorded"' in svg
     assert "<title>unrecorded: 3</title>" in svg
 
 
 def test_svg_colours_can_be_overridden_and_fall_back():
     svg = hemicycle_svg([("spd", 1), ("xyz", 1)], colors={"spd": "#123456"})
-    assert 'fill="#123456"' in svg
-    assert svg.count("<g ") == 2
+    assert "#123456" in svg
+    assert svg.count('class="party-') == 2
 
 
 def test_svg_skips_empty_groups_and_rejects_bad_ones():
@@ -73,3 +93,8 @@ def test_svg_skips_empty_groups_and_rejects_bad_ones():
 
 def test_svg_escapes_labels():
     assert "<b>" not in hemicycle_svg([("<b>", 1)])
+
+
+def test_same_input_same_file():
+    assert hemicycle_svg(BUNDESTAG_2025) == hemicycle_svg(BUNDESTAG_2025)
+    assert hemicycle_svg(BUNDESTAG_2025) != hemicycle_svg(BUNDESTAG_2025, width=300)

@@ -24,4 +24,11 @@ def test_kind_picks_the_plot():
 
 
 def test_no_title_no_header():
-    assert "font-weight:bold;color:#222" not in chamber_html(BUNDESTAG_2025)
+    assert 'class="card-title' not in chamber_html(BUNDESTAG_2025)
+
+
+def test_one_style_block_for_plot_and_legend():
+    card = chamber_html(BUNDESTAG_2025)
+    assert card.count("<style>") == 1
+    assert card.count('class="swatch party-spd"') == 1
+    assert "majority" not in card
