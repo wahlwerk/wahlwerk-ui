@@ -171,10 +171,10 @@ def test_a_chamber_beside_each_step_one_circle_per_seat():
     assert beside.width == plain.width + ASIDE_WIDTH
     assert beside.height >= plain.height  # a short step gets its chamber's room
     svg = beside.svg()
-    assert svg.count("<circle") == 10 + 9 + 11
+    assert svg.count("<circle") == 10 + (9 + 1) + 11  # the cdu member without a seat too
     assert svg.count('class="hollow"') == 10
     assert svg.count('class="party-spd-open"') == 2
-    assert "no seat yet: cdu +1" in svg and ">10 seats, none filled<" in svg
+    assert svg.count('class="party-cdu"') == 4 + 1 + 5 and ">10 seats, none filled<" in svg
     with pytest.raises(ValueError, match="one aside per step"):
         protocol_drawing(STEPS, asides=ASIDES[:2])
 
@@ -185,6 +185,6 @@ def test_parts_of_a_protocol_line_up_and_a_chamber_stands_alone():
     whole = protocol_drawing(STEPS)
     assert part.width == whole.width and margin_of(STEPS[:1]) <= margin
     svg = aside_svg(ASIDES[1], width=200, labels=["cdu", "spd"])
-    assert svg.count("<circle") == 9 and 'width="200"' in svg
+    assert svg.count("<circle") == 9 + 1 and 'width="200"' in svg
     assert ".party-cdu" in svg and ".party-spd-open" in svg
     assert ">9</text>" in svg  # the number of seats, in the middle

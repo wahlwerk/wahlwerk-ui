@@ -28,7 +28,8 @@ or ``None``): what a run of the protocol had decided after that step, as a small
 circle at the step's height. An aside is plain data too: ``seats`` (triples of party,
 seats filled, seats still open for it: a party's colour solid, or as an edge only),
 ``free`` (seats not yet anyone's, hollow), ``standing`` (pairs of party and members
-without a seat yet, drawn below the floor) and ``caption`` (a line under it). The number
+without a seat yet, drawn as dots below the floor, outside the chamber) and ``caption``
+(a line under it). The number
 of seats stands in the middle of the half circle. A step
 shorter than its chamber gets the room: the steps move apart, the chamber stays level
 with its step. A page that sets each step and its chamber side by side draws them apart:
@@ -192,32 +193,60 @@ def _radius(width: float) -> float:
 
 
 def aside_height(aside: Aside, width: float = ASIDE_WIDTH) -> float:
-    """The height of a chamber ``width`` wide: the half circle, its caption, and a line
-    for members without a seat."""
-    standing = _LINE if aside.get("standing") else 0
-    return _radius(width) + 14 + _LINE + standing
+    """The height of a chamber ``width`` wide: the half circle, the members without a
+    seat below its floor, its caption."""
+    rows, pitch, _ = _standing_layout(aside, width)
+    return _radius(width) + 14 + rows * pitch + (4 if rows else 0) + _LINE
+
+
+def _seat_size(aside: Aside, width: float) -> tuple[list[tuple[float, float]], float, float]:
+    """The seat centres (unit), the scale to pixels, and a seat's radius in pixels."""
+    centres, seat_r = seat_layout(len(_aside_kinds(aside)))
+    scale = _radius(width) / (1 + seat_r) if centres else 0.0
+    return centres, scale, seat_r * scale * 0.85
+
+
+def _standing(aside: Aside) -> list[tuple[str | None, int]]:
+    return [(party, int(n)) for party, n in aside.get("standing", ()) if int(n) > 0]
+
+
+def _standing_layout(aside: Aside, width: float) -> tuple[int, float, int]:
+    """Rows of members without a seat, the pitch between dots, and dots per row."""
+    count = sum(n for _, n in _standing(aside))
+    if not count:
+        return 0, 0.0, 0
+    _, _, r = _seat_size(aside, width)
+    r = r or 2.0
+    pitch = 2.6 * r
+    per_row = max(1, int((width - 16) // pitch))
+    return -(-count // per_row), pitch, per_row
 
 
 def _draw_aside(d: Drawing, aside: Aside, x: float, y: float, width: float) -> None:
-    """A chamber as decided so far, its top at ``y``."""
+    """A chamber as decided so far, its top at ``y``. Members a party won beyond its
+    seats stand below the floor, outside the chamber, in their party's colour."""
     kinds = _aside_kinds(aside)
     radius = _radius(width)
     cx, floor = x + width / 2, y + radius + 2
-    centres, seat_r = seat_layout(len(kinds))
-    scale = radius / (1 + seat_r) if kinds else 0.0
+    centres, scale, r = _seat_size(aside, width)
     for (sx, sy), cls in zip(centres, kinds):
-        dot(d, cx + sx * scale, floor - sy * scale, seat_r * scale * 0.85, cls=cls)
-    base = floor + seat_r * scale + 2
+        dot(d, cx + sx * scale, floor - sy * scale, r, cls=cls)
+    base = floor + (r / 0.85 if r else 0) + 2
     d.line("structure", x + 8, base, x + width - 8, base)
     if kinds:  # the size of the chamber, in the middle of its half circle
         text(d, cx, floor - 4, str(len(kinds)), ink="strong", is_name=True)
+    rows, pitch, per_row = _standing_layout(aside, width)
+    if rows:
+        members = [party for party, n in _standing(aside) for _ in range(n)]
+        for row in range(rows):
+            line = members[row * per_row : (row + 1) * per_row]
+            left = cx - (len(line) - 1) * pitch / 2
+            for i, party in enumerate(line):
+                dot(d, left + i * pitch, base + 4 + pitch / 2 + row * pitch, r or 2.0, cls=f"party-{slug(party)}")
+    under = base + rows * pitch + (4 if rows else 0)
     caption = str(aside.get("caption", ""))
     if caption:
-        text(d, cx, base + _LINE, _fit(caption, width - 8), ink="plain")
-    standing = [(party, int(n)) for party, n in aside.get("standing", ()) if int(n) > 0]
-    if standing:
-        line = "no seat yet: " + ", ".join(f"{party} +{n}" for party, n in standing)
-        text(d, cx, base + 2 * _LINE, _fit(line, width - 8), ink="faint")
+        text(d, cx, under + _LINE, _fit(caption, width - 8), ink="plain")
 
 
 # ===========================================================
