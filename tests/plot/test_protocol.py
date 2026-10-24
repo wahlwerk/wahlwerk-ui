@@ -110,12 +110,12 @@ def test_outcomes_stand_in_one_column_outside_every_frame():
 def test_a_step_shows_its_arguments_under_its_title():
     step = {
         "kind": "SingleMandatePerUnit",
-        "inputs": [["votes", "wahlkreis:option:erststimme"]],
+        "inputs": [["votes", "erststimme by wahlkreis × option"]],
         "parameters": [["method", "Plurality"]],
         "writes": ["unit_mandates"],
         "stage": 0,
         "children": [],
     }
     svg = protocol_svg([step])
-    assert ">votes=wahlkreis:option:erststimme, method=Plurality<" in svg
+    assert ">votes=erststimme by wahlkreis × option, method=Plurality<" in svg
     assert ">SingleMandatePerUnit<" in svg  # the title stays as it is

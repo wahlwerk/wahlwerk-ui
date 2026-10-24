@@ -176,7 +176,7 @@ def _needs(use: Step) -> list[str]:
 
 
 def _argument_lines(step: Step, width: float) -> list[str]:
-    """A step's arguments as it is called, ``votes=wahlkreis:option:erststimme``, then
+    """A step's arguments as it is called, ``votes=erststimme by wahlkreis × option``, then
     its settings not drawn as a concept, wrapped to its box; its title when it has
     neither."""
     drawn = {str(u.get("field", "")).split(".")[0] for u in step.get("uses") or ()}
