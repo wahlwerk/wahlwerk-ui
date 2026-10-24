@@ -266,6 +266,12 @@ def css(scope: str, parties: Mapping[str, Tone], *, adaptive: bool = True) -> st
         f"{root} .party-{k}{{fill:{refs[f'party-{k}']};background:{refs[f'party-{k}']}}}"
         for k in parties
     ]
+    # A seat of the party not filled yet: paper inside, the party's colour as its edge.
+    rules += [
+        f"{root} .party-{k}-open{{fill:{refs['surface']};stroke:{refs[f'party-{k}']};"
+        f"stroke-width:{STROKE_FRAME_PX}}}"
+        for k in parties
+    ]
     if not adaptive:
         return "".join(rules)
     light = {k: t.light for k, t in tokens.items()}
