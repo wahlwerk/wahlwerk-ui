@@ -11,8 +11,8 @@ Takes plain data, one mapping per step, as the engine's
   (optional: when a loop runs another round, in words),
 - ``uses`` (optional: the core concepts it computes with, outermost first, each
   ``field``, ``kind``, ``parameters`` and ``calls``; a field ``method.method`` sits in
-  ``method``; ``arguments``, what the step hands it) and ``calls`` (optional: functions
-  it calls itself); a call is ``formula`` (its full name) and ``call`` (its signature).
+  ``method``; ``arguments``, what the step hands it); a call is ``formula`` (its full
+  name) and ``call`` (its signature). A step calls no function itself: only its concepts do.
 
 A step is a box of paper, its kind in the name ink and its settings faint under it;
 the paragraph it follows sits at its right edge, the facts it writes in the margin, its
@@ -102,9 +102,8 @@ def _height(step: Step, width: float) -> float:
     pad = _FRAME_PAD if children else _CONCEPT_PAD
     concepts = sum(_concept_height(c, width - 2 * pad) + _CONCEPT_GAP for c in _tree(list(step.get("uses") or ())))
     if not children:
-        given = len(_wrap(_given(step), width - 12)) if step.get("calls") else 0
         lines = len(_argument_lines(step, width))
-        return (1 + lines + given + len(step.get("calls") or ())) * _LINE + 6 + concepts
+        return (1 + lines) * _LINE + 6 + concepts
     inner = sum(_height(c, width - 2 * _FRAME_PAD) for c in children) + _GAP * (len(children) - 1)
     header = 2 * _LINE if _frame_settings(step) else _LINE
     header += _LINE * len(_condition_lines(step, width))
@@ -284,11 +283,6 @@ def _argument_lines(step: Step, width: float) -> list[Line]:
     return _lines(wiring, settings, width)
 
 
-def _given(step: Step) -> list[str]:
-    """What a step hands the functions it calls itself, as ``seats=chamber_size``."""
-    return [f"{k}={v}" for k, v in step.get("arguments") or ()]
-
-
 def _wrap(items: list[str], room: float) -> list[str]:
     """``items`` joined with commas into lines of at most ``room`` pixels."""
     lines: list[str] = []
@@ -343,20 +337,11 @@ def _draw(
                 continue
             _pills(d, x1 + 6, y + number * _LINE, line, words)
             text(d, x1 + 6, y + number * _LINE, line, ink=ink, anchor="start")
-        # The concepts it computes with first, then the functions it calls itself with
-        # what they give (the caucus size: the quota, then the whole seats of it).
+        # The concepts it computes with: a step calls no function itself, only they do.
         inner_y = y + (1 + len(lines)) * _LINE + 6
         for concept in _tree(uses):
             _draw_concept(d, concept, x1 + _CONCEPT_PAD, x2 - _CONCEPT_PAD, inner_y)
             inner_y += _concept_height(concept, x2 - x1 - 2 * _CONCEPT_PAD) + _CONCEPT_GAP
-        line_y = inner_y - 6
-        if step.get("calls"):
-            for line in _wrap(_given(step), x2 - x1 - 12):
-                line_y += _LINE
-                text(d, x1 + 6, line_y, _fit(line, x2 - x1 - 12), ink="faint", anchor="start")
-        for call in step.get("calls") or ():
-            line_y += _LINE
-            text(d, x1 + 6, line_y, _fit(_call(call), x2 - x1 - 12), ink="plain", anchor="start")
         return
     is_loop = kind.startswith(_LOOPS)
     label = kind  # a sequence is a step, named like one
