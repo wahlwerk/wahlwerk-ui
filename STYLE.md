@@ -78,8 +78,10 @@ A circle is a seat, a voter, a mark. It is drawn in five steps of increasing ink
 3. **Edged** (from 6 px): fill plus a 0.6 px edge in the content ink.
 4. **A sketch's subject**: `SUBJECT_FILL` with a `SUBJECT_LINE` edge; a voter or a vote
    inside it as a small filled dot.
-5. **A mandate's choice** (`primitives.CHOICES`): **yes** filled, **no** hollow,
+5. **A choice on a motion** (`primitives.CHOICES`): **yes** filled, **no** hollow,
    **abstain** grey, **absent** dashed, as construction: a seat with nobody voting from it.
+   A motion is only one thing a chamber votes on; a chamber vote on a person, a list,
+   x out of y or an order is drawn with the same option pieces as a popular vote.
 
 Seats in a hemicycle are laid out by `seat_layout`: rings proportional to their length,
 seats ordered left to right by angle, integer arithmetic for the split so a layout is the

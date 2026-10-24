@@ -212,7 +212,7 @@ def circles() -> Plate:
         "choices",
         width=230,
         height=H,
-        caption=("a mandate's choice", "yes filled, no hollow,", "abstain grey, absent dashed"),
+        caption=("a choice on a motion", "yes filled, no hollow,", "abstain grey, absent dashed"),
     )
     for i, choice in enumerate(sk.CHOICES):
         x = 30 + i * 56

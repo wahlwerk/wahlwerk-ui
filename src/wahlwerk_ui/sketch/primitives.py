@@ -55,7 +55,10 @@ CHOICES: dict[str, str] = {
     "abstain": "neutral",
     "absent": "construction",
 }
-"""How a mandate's choice is drawn: yes filled, no hollow, abstain grey, absent dashed."""
+"""How a mandate's choice on a motion is drawn: yes filled, no hollow, abstain grey, absent
+dashed. A motion is one thing a chamber can vote on; a vote on a person, a list, x out of
+y or an order is drawn with the option pieces (:func:`ballot_paper`, :func:`mark`), as
+for a popular vote."""
 
 
 def text_width(text: str) -> float:
@@ -371,7 +374,8 @@ def chamber(
     radius: float,
     choices: Sequence[str],
 ) -> list[tuple[float, float]]:
-    """A chamber as a hemicycle of mandates, each drawn by its choice (:data:`CHOICES`).
+    """A chamber voting on a motion: a hemicycle of mandates, each drawn by its choice
+    (:data:`CHOICES`).
 
     ``cy`` is the floor line; the seats are laid out as in the chamber plot. Returns the
     seat centres, left to right.
