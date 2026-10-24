@@ -22,6 +22,17 @@ threshold) is a paper block inside it, with the functions of ``wahlwerk.calc`` i
 calls, and a concept that holds another holds its block the same way. A step that holds others is a dashed frame in the step colour (a grouping, not
 a thing) around its children; a loop's frame says that it repeats.
 Arrows run from each step to the next. Nothing here knows about elections.
+
+Beside the steps, optionally, a column of chambers (``asides``, one per top-level step
+or ``None``): what a run of the protocol had decided after that step, as a small half
+circle at the step's height. An aside is plain data too: ``seats`` (triples of party,
+seats filled, seats still open for it: a party's colour solid, or as an edge only),
+``free`` (seats not yet anyone's, hollow), ``standing`` (pairs of party and members
+without a seat yet, drawn below the floor) and ``caption`` (a line under it). A step
+shorter than its chamber gets the room: the steps move apart, the chamber stays level
+with its step. A page that sets each step and its chamber side by side draws them apart:
+each top-level step with ``margin=margin_of(steps)``, so the parts line up, and its
+chamber with :func:`aside_svg`.
 """
 
 from __future__ import annotations
@@ -32,14 +43,27 @@ from html import escape
 from typing import Any
 
 from wahlwerk_ui.html import Html
-from wahlwerk_ui.sketch.primitives import arrow, box, text
-from wahlwerk_ui.style import CHAR_WIDTH_PX, FONT_SIZE_PX, css
+from wahlwerk_ui.plot.chamber.common import party_tones
+from wahlwerk_ui.plot.chamber.seat import seat_layout
+from wahlwerk_ui.sketch.primitives import arrow, box, dot, text
+from wahlwerk_ui.style import CHAR_WIDTH_PX, FONT_SIZE_PX, css, slug
 from wahlwerk_ui.svg import Drawing, Svg, num, scope_id
 
-__all__ = ["protocol_drawing", "protocol_html", "protocol_svg"]
+__all__ = [
+    "ASIDE_WIDTH",
+    "aside_height",
+    "aside_svg",
+    "margin_of",
+    "protocol_drawing",
+    "protocol_html",
+    "protocol_svg",
+]
 
 Step = Mapping[str, Any]
 """One step as plain data; see the module docstring."""
+
+Aside = Mapping[str, Any]
+"""What a run had decided after one top-level step, as plain data; see the module docstring."""
 
 _PAD = 8
 _GUTTER = 22  # the stage column
@@ -52,44 +76,145 @@ _LOOPS = ("Repeat", "Raise")  # a step whose name starts so repeats what it hold
 
 
 def protocol_drawing(
-    steps: Sequence[Step], *, width: int = 640, title: str = "", scope: str | None = None
+    steps: Sequence[Step],
+    *,
+    width: int = 640,
+    title: str = "",
+    scope: str | None = None,
+    asides: Sequence[Aside | None] | None = None,
+    margin: int | None = None,
 ) -> Drawing:
-    """The protocol of ``steps`` as a :class:`~wahlwerk_ui.svg.Drawing`."""
-    # The facts written, at the right: as wide as the longest, at most a third.
-    longest = max((_width(f"→ {fact}") for fact in _all_writes(steps)), default=0.0)
-    margin = int(min(width // 3, max(120.0, longest + 24)))  # longer facts wrap
+    """The protocol of ``steps`` as a :class:`~wahlwerk_ui.svg.Drawing`; with ``asides``,
+    one per step, a chamber beside each step, ``ASIDE_WIDTH`` pixels more to the right.
+    ``margin`` fixes the width of the facts' column (:func:`margin_of` a whole protocol),
+    so drawings of its parts line up."""
+    if asides is not None and len(asides) != len(steps):
+        raise ValueError(f"one aside per step: {len(steps)} steps, {len(asides)} asides")
+    margin = margin_of(steps, width) if margin is None else margin
     left = _PAD + _GUTTER
     right = width - _PAD - margin
     if right - left < 160:
         raise ValueError(f"width {width} is too narrow for a protocol drawing")
     heights = [_height(step, right - left) for step in steps]
-    total = _PAD + sum(heights) + _GAP * max(len(steps) - 1, 0) + _PAD
-    d = Drawing(width, total, scope=scope or scope_id("protocol", repr(steps), width), label=title or "protocol")
+    beside = list(asides) if asides is not None else [None] * len(steps)
+    slots = [max(h, aside_height(a)) if a else h for h, a in zip(heights, beside)]
+    total = _PAD + sum(slots) + _GAP * max(len(steps) - 1, 0) + _PAD
+    extra = ASIDE_WIDTH if asides is not None else 0
+    d = Drawing(
+        width + extra,
+        total,
+        scope=scope or scope_id("protocol", repr(steps), repr(asides), width, margin),
+        label=title or "protocol",
+    )
+    if asides is not None:
+        _register(d, [a for a in beside if a])
     y: float = _PAD
-    for index, (step, height) in enumerate(zip(steps, heights)):
+    for index, (step, height, slot, aside) in enumerate(zip(steps, heights, slots, beside)):
         _draw(d, step, left, right, y, (right, width - _PAD), show_stage=True)
+        if aside:
+            _draw_aside(d, aside, width, y, ASIDE_WIDTH)
         if index + 1 < len(steps):
             mid = (left + right) / 2
-            arrow(d, mid, y + height + 1, mid, y + height + _GAP - 1)
-        y += height + _GAP
+            arrow(d, mid, y + height + 1, mid, y + slot + _GAP - 1)
+        y += slot + _GAP
     return d
 
 
-def protocol_svg(steps: Sequence[Step], *, width: int = 640, title: str = "") -> Svg:
+def margin_of(steps: Sequence[Step], width: int = 640) -> int:
+    """The width of the facts' column: as wide as the longest fact, at most a third."""
+    longest = max((_width(f"→ {fact}") for fact in _all_writes(steps)), default=0.0)
+    return int(min(width // 3, max(120.0, longest + 24)))  # longer facts wrap
+
+
+def protocol_svg(
+    steps: Sequence[Step],
+    *,
+    width: int = 640,
+    title: str = "",
+    asides: Sequence[Aside | None] | None = None,
+    margin: int | None = None,
+) -> Svg:
     """An inline SVG of the protocol; ``Svg.save(dir, name)`` writes it for print."""
-    return protocol_drawing(steps, width=width, title=title).svg()
+    return protocol_drawing(steps, width=width, title=title, asides=asides, margin=margin).svg()
 
 
-def protocol_html(steps: Sequence[Step], *, width: int = 640, title: str = "") -> Html:
+def protocol_html(
+    steps: Sequence[Step], *, width: int = 640, title: str = "", asides: Sequence[Aside | None] | None = None
+) -> Html:
     """A card with ``title`` over the drawing, for a notebook."""
-    scope = scope_id("protocol-card", repr(steps), width, title)
-    drawing = protocol_drawing(steps, width=width, title=title, scope=f"{scope}-plot")
+    scope = scope_id("protocol-card", repr(steps), repr(asides), width, title)
+    drawing = protocol_drawing(steps, width=width, title=title, scope=f"{scope}-plot", asides=asides)
     header = f'<div class="card-title strong name">{escape(title)}</div>' if title else ""
     return Html(
         f'<div id="{scope}" class="ww card">'
         f"<style>{css(scope, {})}</style>"
         f"{header}<div>{drawing.markup(style=False)}</div></div>"
     )
+
+
+# ===========================================================
+# The chambers beside the steps
+# ===========================================================
+ASIDE_WIDTH = 150
+"""The width of the column of chambers beside the steps."""
+
+
+def aside_svg(aside: Aside, *, width: int = ASIDE_WIDTH, labels: Sequence[str | None] = ()) -> Svg:
+    """One chamber as decided so far, on its own: for a page that sets each step's
+    drawing and its chamber side by side. ``labels``, every party of the run in order,
+    keep the colours of parties without a colour of their own the same in each."""
+    d = Drawing(width, aside_height(aside, width), scope=scope_id("aside", repr(aside), width, repr(labels)), label="chamber")
+    _register(d, [aside], labels)
+    _draw_aside(d, aside, 0, 0, width)
+    return d.svg()
+
+
+def _register(d: Drawing, asides: Sequence[Aside], labels: Sequence[str | None] = ()) -> None:
+    """The party colours of ``asides``, assigned in the order of ``labels`` and then of
+    first appearance."""
+    seen = [*labels, *(party for a in asides for party, *_ in [*a.get("seats", ()), *a.get("standing", ())])]
+    for key, tone in party_tones([(label, 1) for label in dict.fromkeys(seen)], None):
+        d.parties.setdefault(key, tone)
+
+
+def _aside_kinds(aside: Aside) -> list[str]:
+    """The class of each seat, left to right: party by party its filled seats, then its
+    open ones; then the seats not yet anyone's."""
+    kinds: list[str] = []
+    for party, filled, still_open in aside.get("seats", ()):
+        kinds += [f"party-{slug(party)}"] * int(filled) + [f"party-{slug(party)}-open"] * int(still_open)
+    return kinds + ["hollow"] * int(aside.get("free", 0))
+
+
+def _radius(width: float) -> float:
+    return (width - 24) / 2
+
+
+def aside_height(aside: Aside, width: float = ASIDE_WIDTH) -> float:
+    """The height of a chamber ``width`` wide: the half circle, its caption, and a line
+    for members without a seat."""
+    standing = _LINE if aside.get("standing") else 0
+    return _radius(width) + 14 + _LINE + standing
+
+
+def _draw_aside(d: Drawing, aside: Aside, x: float, y: float, width: float) -> None:
+    """A chamber as decided so far, its top at ``y``."""
+    kinds = _aside_kinds(aside)
+    radius = _radius(width)
+    cx, floor = x + width / 2, y + radius + 2
+    centres, seat_r = seat_layout(len(kinds))
+    scale = radius / (1 + seat_r) if kinds else 0.0
+    for (sx, sy), cls in zip(centres, kinds):
+        dot(d, cx + sx * scale, floor - sy * scale, seat_r * scale * 0.85, cls=cls)
+    base = floor + seat_r * scale + 2
+    d.line("structure", x + 8, base, x + width - 8, base)
+    caption = str(aside.get("caption", ""))
+    if caption:
+        text(d, cx, base + _LINE, _fit(caption, width - 8), ink="plain")
+    standing = [(party, int(n)) for party, n in aside.get("standing", ()) if int(n) > 0]
+    if standing:
+        line = "no seat yet: " + ", ".join(f"{party} +{n}" for party, n in standing)
+        text(d, cx, base + 2 * _LINE, _fit(line, width - 8), ink="faint")
 
 
 # ===========================================================

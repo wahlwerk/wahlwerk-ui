@@ -2,7 +2,14 @@
 
 import pytest
 
-from wahlwerk_ui.plot.protocol import protocol_drawing, protocol_html, protocol_svg
+from wahlwerk_ui.plot.protocol import (
+    ASIDE_WIDTH,
+    aside_svg,
+    margin_of,
+    protocol_drawing,
+    protocol_html,
+    protocol_svg,
+)
 
 STEPS = [
     {"kind": "SumVotes", "title": "sum the tally", "citation": "Sec. 31", "parameters": [["level", "land"]], "writes": ["total:land"], "stage": 0, "children": []},
@@ -149,3 +156,34 @@ def test_a_setting_is_marked_in_the_plural_too():
     svg = protocol_svg([step], width=900)
     # zweitstimme, land, party in the argument; parties and zweitstimme in the result
     assert svg.count('class="pill"') == 5
+
+
+ASIDES = [
+    {"seats": [], "free": 10, "standing": [], "caption": "10 seats, none filled"},
+    {"seats": [["spd", 3, 2], ["cdu", 4, 0]], "free": 0, "standing": [["cdu", 1]], "caption": "10 seats, 7 filled"},
+    {"seats": [["spd", 5, 0], ["cdu", 5, 0], [None, 1, 0]], "free": 0, "standing": [], "caption": "11 seats, all filled"},
+]
+
+
+def test_a_chamber_beside_each_step_one_circle_per_seat():
+    plain = protocol_drawing(STEPS)
+    beside = protocol_drawing(STEPS, asides=ASIDES)
+    assert beside.width == plain.width + ASIDE_WIDTH
+    assert beside.height >= plain.height  # a short step gets its chamber's room
+    svg = beside.svg()
+    assert svg.count("<circle") == 10 + 9 + 11
+    assert svg.count('class="hollow"') == 10
+    assert svg.count('class="party-spd-open"') == 2
+    assert "no seat yet: cdu +1" in svg and ">10 seats, none filled<" in svg
+    with pytest.raises(ValueError, match="one aside per step"):
+        protocol_drawing(STEPS, asides=ASIDES[:2])
+
+
+def test_parts_of_a_protocol_line_up_and_a_chamber_stands_alone():
+    margin = margin_of(STEPS)
+    part = protocol_drawing(STEPS[:1], margin=margin)
+    whole = protocol_drawing(STEPS)
+    assert part.width == whole.width and margin_of(STEPS[:1]) <= margin
+    svg = aside_svg(ASIDES[1], width=200, labels=["cdu", "spd"])
+    assert svg.count("<circle") == 9 and 'width="200"' in svg
+    assert ".party-cdu" in svg and ".party-spd-open" in svg
