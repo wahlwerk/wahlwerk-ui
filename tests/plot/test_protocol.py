@@ -62,9 +62,9 @@ def test_too_narrow_is_refused():
 def test_the_chain_down_to_the_formula_is_drawn():
     call = {"formula": "wahlwerk.calc.plurality.plurality", "call": "plurality(votes, seats=1)"}
     step = {
-        "kind": "ElectPerUnit",
+        "kind": "SingleMandatePerUnit",
         "parameters": [["method", "Plurality"], ["level", "wahlkreis"]],
-        "writes": ["unit_winners"],
+        "writes": ["unit_mandates"],
         "stage": 1,
         "uses": [{"field": "method", "kind": "Plurality", "arguments": [["seats", "1"]], "parameters": [], "calls": [call]}],
     }
