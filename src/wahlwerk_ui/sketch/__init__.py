@@ -1,7 +1,7 @@
 """Sketches: schematic drawings built in code, as plates of numbered panels.
 
 A sketch explains something that is not a result from data: what a vote is, how a
-Stimmzettel is laid out, how a tally is shaped. It is drawn in the same style as the
+ballot paper is laid out, how a tally is shaped. It is drawn in the same style as the
 plots (:mod:`wahlwerk_ui.style`) and with the same builder (:class:`~wahlwerk_ui.svg.Drawing`):
 :mod:`.plate` lays panels out with a number, a title and a caption, :mod:`.primitives`
 draws the pieces, :mod:`.guide` draws the style guide with them.

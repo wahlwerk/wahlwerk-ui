@@ -116,7 +116,7 @@ The same few pieces everywhere ([`sketch/primitives.py`](src/wahlwerk_ui/sketch/
 - **table**: faint header, hairline rule, plain cells, numbers strong and right aligned;
   an absent value is a faint `·`, never a `0`.
 - **tree**: the parent above, edges down, across and down to each child.
-- **Stimmzettel** and **chamber** are compositions of these, kept in the library because
+- **ballot paper** and **chamber** are compositions of these, kept in the library because
   more than one sketch draws them.
 
 ## 7 Colour
@@ -156,7 +156,7 @@ The list itself, with every value in both themes, is
   Place a sketch in a document of your own and draw hand additions on a layer there.
 - **Readable.** Named layers with Inkscape layer attributes, one group per party
   (`party-spd`), one id per seat (`seat-spd-001`), ids prefixed by panel on a plate
-  (`stimmzettel.layer-subject`), one style block at the top with every selector under the
+  (`ballot.layer-subject`), one style block at the top with every selector under the
   drawing's id.
 - **Deterministic.** The same input gives the same file: ids come from a hash of what is
   drawn, crowds from a fixed sequence, never from a random seed.

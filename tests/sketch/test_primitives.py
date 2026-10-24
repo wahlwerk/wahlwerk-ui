@@ -28,9 +28,9 @@ def test_crowd_is_deterministic_and_stays_in_its_box():
     assert sk.crowd(_d(), 0, 0, 10, 10, 0) == []
 
 
-def test_stimmzettel_crosses_only_the_marked_options():
+def test_ballot_paper_crosses_only_the_marked_options():
     d = _d()
-    sk.stimmzettel(d, 0, 0, 200, [("erststimme", ["a", "b"], 1), ("zweitstimme", ["x"], None)])
+    sk.ballot_paper(d, 0, 0, 200, [("erststimme", ["a", "b"], 1), ("zweitstimme", ["x"], None)])
     markup = d.markup(style=False)
     assert markup.count('class="hollow"') == 3
     assert markup.count('class="subject-line"') == 1

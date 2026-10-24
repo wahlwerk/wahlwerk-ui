@@ -13,7 +13,7 @@ subject                        :func:`dot`, :func:`crowd`, :func:`cross`, :func:
 labels                         :func:`text`, :func:`table`
 =============================  ===========================================
 
-No piece knows anything about elections; :func:`stimmzettel` and :func:`chamber` are
+No piece knows anything about elections; :func:`ballot_paper` and :func:`chamber` are
 compositions of the others, kept here because more than one sketch draws them.
 """
 
@@ -31,6 +31,7 @@ __all__ = [
     "CHOICES",
     "arrow",
     "axis",
+    "ballot_paper",
     "box",
     "chamber",
     "cross",
@@ -42,7 +43,6 @@ __all__ = [
     "link",
     "mark",
     "rule",
-    "stimmzettel",
     "table",
     "text",
     "text_width",
@@ -147,7 +147,7 @@ def dimension(
 def box(
     d: Drawing, x: float, y: float, w: float, h: float, *, cls: str = "paper", rx: float = 2
 ) -> ET.Element:
-    """A box: ``paper`` (a Stimmzettel, a record) or another class from the style block."""
+    """A box: ``paper`` (a ballot paper, a record) or another class from the style block."""
     layer = "subject" if cls.startswith("subject") else "structure"
     return d.add(
         layer,
@@ -277,7 +277,7 @@ def cross(d: Drawing, x: float, y: float, size: float = 6) -> ET.Element:
 
 
 def mark(d: Drawing, x: float, y: float, r: float = 4.5, *, is_marked: bool = False) -> ET.Element:
-    """The circle a voter marks on a Stimmzettel, crossed when ``is_marked``."""
+    """The circle a voter marks on a ballot paper, crossed when ``is_marked``."""
     element = d.add(
         "structure",
         "circle",
@@ -334,7 +334,7 @@ def table(
 # ===========================================================
 # Compositions
 # ===========================================================
-def stimmzettel(
+def ballot_paper(
     d: Drawing,
     x: float,
     y: float,
@@ -343,7 +343,7 @@ def stimmzettel(
     *,
     row: float = 15,
 ) -> float:
-    """A Stimmzettel: one column per section, its options listed with a circle each.
+    """A ballot paper (a Stimmzettel, in the German example): one column per section, its options listed with a circle each.
 
     ``sections`` are ``(heading, options, marked)``; ``marked`` is the index of the
     option crossed, or ``None``. Returns the height drawn.

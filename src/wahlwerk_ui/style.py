@@ -141,7 +141,7 @@ STROKE_FRAME_PX = 1.0
 """Guides, marks and the floor line (construction, dimension, structure)."""
 
 STROKE_SUBJECT_PX = 1.4
-"""The subject drawn as a line: its edge, a cross on a Stimmzettel. The heaviest ink."""
+"""The subject drawn as a line: its edge, a cross on a ballot paper. The heaviest ink."""
 
 DASH = "2 2"
 """Dash pattern of construction geometry."""
